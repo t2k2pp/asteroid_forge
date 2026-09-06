@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASTEROID FORGE — アステロイド・フォージ</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- Three.js レンダリング先 -->
+<div id="scene"></div>
+
+<!-- ================= HUD ================= -->
+<header id="hud">
+  <div class="hudRow top">
+    <div class="hudBox">
+      <span class="lbl">SCORE</span><span id="hScore" class="num">0</span>
+      <span id="hBest" class="best"></span>
+    </div>
+    <div class="hudBox mid">
+      <span id="hStage" class="stageTag">STAGE 1</span>
+      <span id="comboTag" class="tag"></span>
+    </div>
+    <div class="hudBox right">
+      <span class="fe">Fe <b id="hFe" class="num">0</b></span>
+      <span class="cr">Cr <b id="hCr" class="num">0</b></span>
+      <span id="hMute" class="tag dim" style="display:none">MUTED [M]</span>
+    </div>
+  </div>
+  <div class="hudRow bottom">
+    <div class="hudBox">
+      <span id="hLives" class="lives"></span>
+      <span id="hpPips" class="pips"></span>
+      <span id="shieldWrap" class="shieldWrap"><i id="shieldFill"></i></span>
+    </div>
+    <div class="hudBox right dim">
+      <span id="hWpn"></span><span class="sep">·</span>
+      <span>Space: 射撃 / Tab: クラフト</span>
+      <button id="btnCraftHud" type="button">CRAFT ▦</button>
+    </div>
+  </div>
+</header>
+
+<!-- ================= 動的メッセージ ================= -->
+<div id="banner"><div id="bTitle"></div><div id="bSub"></div></div>
+<div id="toast"></div>
+
+<!-- ================= タイトル ================= -->
+<section id="scrTitle" class="screen">
+  <div class="panel title">
+    <h1>ASTEROID&nbsp;FORGE</h1>
+    <p class="tagline">— アステロイド・フォージ —<br><small>a modern homage to ATARI «ASTEROIDS» (1979)</small></p>
+    <p id="titleMeta" class="meta"></p>
+    <div class="btnRow">
+      <button id="btnContinue" class="primary">▶ 继续出撃 (保存済みから)</button>
+      <button id="btnNew" class="primary">✦ 新しいキャンペーン</button>
+    </div>
+    <details class="help">
+      <summary>操作方法 / 遊び方</summary>
+      <table>
+        <tr><td>← → / A D</td><td>機首を回す (その場回転)</td></tr>
+        <tr><td>↑ / W</td><td>推進 (慣性で滑り続ける — 1979 そのまま)</td></tr>
+        <tr><td>Space</td><td>レーザー射撃</td></tr>
+        <tr><td>Tab / C</td><td>クラフトパネル (ポーズ中は数字キー 1〜5 で即購入)</td></tr>
+        <tr><td>P / Esc / M</td><td>ポーズ / 閉じる / ミュート</td></tr>
+      </table>
+      <p class="howto">
+        隕石を壊して <b class="fe">Fe(鉄鉱石)</b> と <b class="cr">Cr(結晶)</b> を採掘し、
+        クラフトで機体を段階的に強化しながら帯を攻略する。<br>
+        ステージ進行・資源・強化はブラウザに<b>自動保存</b>され、ゲームオーバーでも持ち帰れる。<br>
+        画面端はワープして反対側へ。大きな隕石は壊すと分割される。緑く光るジオード隕石は Cr を多く落とす。
+      </p>
+    </details>
+    <p class="foot">v1.0 — Three.js 2.5D / キーボード操作 / local:af_save_v1</p>
+  </div>
+</section>
+
+<!-- ================= ポーズ ================= -->
+<section id="scrPause" class="screen">
+  <div class="panel small">
+    <h2>PAUSED</h2>
+    <button id="btnResume" class="primary">再開 (P / Esc)</button>
+  </div>
+</section>
+
+<!-- ================= クラフト ================= -->
+<section id="scrCraft" class="screen">
+  <div class="panel craft">
+    <h2>CRAFT BAY <span class="resLine">資源: <b class="fe">Fe <i id="craftFe">0</i></b> / <b class="cr">Cr <i id="craftCr">0</i></b></span></h2>
+    <div id="craftList"></div>
+    <button id="btnCraftClose" type="button">✕ 戦闘に戻る (Tab / C / Esc)</button>
+    <p class="foot">数字キー 1〜5 で即購入 · Tab / C / Esc で閉じる (その間ゲームは停止)</p>
+  </div>
+</section>
+
+<!-- ================= ゲームオーバー ================= -->
+<section id="scrOver" class="screen">
+  <div class="panel small">
+    <h2>MISSION FAILED</h2>
+    <div class="statsGrid">
+      <div><span>SCORE</span><b id="ovScore">0</b></div>
+      <div><span>BEST</span><b id="ovBest">0</b></div>
+      <div><span>到達</span><b id="ovStage">—</b></div>
+      <div><span>通算帰還不能</span><b id="ovDeaths">0</b></div>
+    </div>
+    <p class="howto">ステージ・資源・アップグレードは保存されています。<br>そのまま同じ帯から再出撃できる。</p>
+    <div class="btnRow">
+      <button id="btnRetry" class="primary">↻ 同じ帯から再出撃 (Enter)</button>
+      <button id="btnTitle">タイトルへ</button>
+    </div>
+  </div>
+</section>
+
+<!-- ================= scripts (ES Module 不使用 = file:// でも動く) ================= -->
+<script src="js/vendor/three.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/logic.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/entities.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/game.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

@@ -6,7 +6,7 @@
   - `.gitignore` の整備 (.DS_Store等の一時ファイル除外)
   - 初回コミット作成およびリモートリポジトリへの初期Push
 
-- [ ] 2. ASTEROID FORGE プロジェクト資産一式の登録と検証
+- [x] 2. ASTEROID FORGE プロジェクト資産一式の登録と検証
   - ゲーム本体 (HTML/CSS/JS/Vendor)、画像/ドキュメント (README/DESIGN/EVALUATION/docs)、テストコードの登録
   - テストスイート (`node tests/run-tests.mjs`) の実行検証
   - コミット作成およびリモートリポジトリへのPush
