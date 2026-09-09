@@ -148,12 +148,21 @@ Standard Gamepad マッピングに対応。Nintendo Switch と Xbox/PC 系コ�
 | コントローラー配列切替 | UIトグルクリック / 設定 | UIトグルクリック / 設定 | タイトル/ポーズ画面トグル |
 
 
+#### マウス / タッチ操作 (Pointer Events)
+Pointer Events (`pointerdown`, `pointermove`, `pointerup`, `pointercancel`) により、マウスおよびスマートフォン・タブレットのタッチ操作に対応。
+
+| 操作 | 動作 | 詳細 |
+|---|---|---|
+| フィールド内 クリック / タップ | 射撃 (ショット) | ポインター押下時に単発射撃 |
+| フィールド内 ドラッグ (押しっぱなし) | 旋回追従 ＋ 推進 ＋ 連射 | ポインター位置 (3D空間 Y=1 平面への投影点) に向けて機首が旋回し、ポインターへ前進しながら連射 |
+| フィールド外 タップ / クリック | クラフト画面開閉 (完全停止) | アリーナ境界外 (または画面外周/HUD) をタップすると、クラフト画面が開きシミュレーションが完全停止 (Pauseと共通凍結) |
+| クラフト画面中 外側タップ | 戦闘復帰 | クラフトパネル外側の暗がりをタップするとクラフトを閉じ戦闘再開 |
 
 ## 6. チューニング方針とリスク
 - **数値は `config.js` に全集約**: 実測 (EVALUATION) の結果を見て 1 ファイルで再調整できる。
 - 意図した手応えの基準点: 「第 3 帯の初撃まで Mk I のままでも倒し切れる / レーザー Mk II が最初の達成感 / シールド初購入でレイド機が理不尽でなくなる」。
 - リスク: headless Chromium では WebGL がソフトウェアレンダ (SwiftShader) → フレーム落ちしうるがロジック検証には影響なし。実機 GPU 環境では Target 60fps (軽メッシュのみ、ポストプロセス不使用)。
-- スコープ外 (意図的): 二人同時、タッチ操作 (キーボード前提)、オンライン保存、有料ガチャ系。
+- スコープ外 (意図的): 二人同時、オンライン保存、有料ガチャ系。
 
 ## 7. 評価計画 (EVALUATION.md に結果)
 1. `node --check` for full JS syntax, and `node tests/run-tests.mjs` for unit tests of the economic formulas, scaling formulas, and persistence sanitize.
