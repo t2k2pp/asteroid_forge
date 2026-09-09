@@ -24,3 +24,28 @@
 - [x] 2. 自機旋回方向補正・ポーズ/クラフト完全停止・DESIGN.md 更新のコミットとmainへのPush
 - [x] 3. ToDo完了記録の更新とmainへのPush
 
+---
+
+# ゲームパッド対応 (Xbox / Switch 配列切替) 実装 ToDo
+
+- [x] 1. 設計書更新・永続化ロジック (padLayout: 'xbox'|'switch') 実装と単体テスト検証
+  - `DESIGN.md` にコントローラー入力仕様および配列切り替え（Xbox/Switch）の仕様を追記
+  - `js/storage.js` のスキーマ・サニタイズに `padLayout` を追加
+  - `tests/run-tests.mjs` に `padLayout` の保存・サニタイズテストを追加・検証
+  - コミット作成およびリモートリポジトリ（origin/main）へのPush
+- [ ] 2. Gamepad API 入力ポーリング・アクションマッピング実装
+  - `js/game.js` にコントローラー入力（アナログスティック、十字キー、ボタン、トリガー）処理を実装
+  - Xbox配列 / Switch配列のボタン配置切替ロジックの実装
+  - クラフト・ポーズ・タイトル・ゲームオーバーのコントローラー操作対応
+  - コミット作成およびリモートリポジトリ（origin/main）へのPush
+- [ ] 3. UI切替トグル・操作ガイドの追加とブラウザ実機検証 (Playwright)
+  - `index.html` / `js/ui.js` / `css/style.css` にコントローラー配列切替ボタンを追加
+  - ヘルプモーダルにゲームパッド操作説明（Xbox/Switch）を追加
+  - コントローラー接続・切断時のトースト通知の追加
+  - `tests/browser-verify.mjs` にゲームパッドエミュレーション検証を追加・実行
+  - コミット作成およびリモートリポジトリ（origin/main）へのPush
+- [ ] 4. ToDo完了記録の更新と最終リモート同期
+  - `TODO.md` の完了状態更新
+  - コミット作成およびリモートリポジトリ（origin/main）へのPush
+
+

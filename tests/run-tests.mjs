@@ -204,5 +204,19 @@ test('Save: clear 後にデフォルトへ', () => {
   assert.equal(S.hasSave(), false);
 });
 
+test('Save: padLayout の保存・取得とサニタイズ (デフォルト xbox / switch 切り替え / 不正値フォールバック)', () => {
+  assert.equal(S.getPadLayout(), 'xbox');
+  assert.equal(S.setPadLayout('switch'), 'switch');
+  assert.equal(S.getPadLayout(), 'switch');
+  assert.equal(S.setPadLayout('xbox'), 'xbox');
+  assert.equal(S.getPadLayout(), 'xbox');
+
+  const sanitizedInvalid = S.sanitize({ padLayout: 'invalid_type' });
+  assert.equal(sanitizedInvalid.padLayout, 'xbox');
+
+  const sanitizedSwitch = S.sanitize({ padLayout: 'switch' });
+  assert.equal(sanitizedSwitch.padLayout, 'switch');
+});
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exitCode = fail > 0 ? 1 : 0;

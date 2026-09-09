@@ -47,6 +47,7 @@
       highScore: num(raw.highScore, 0, 1e9, 0),
       deaths: num(raw.deaths, 0, 1e6, 0),
       muted: !!raw.muted,
+      padLayout: raw.padLayout === 'switch' ? 'switch' : 'xbox',
       ts: num(raw.ts, 0, 1e12, 0)
     };
     for (var i = 0; i < L.RECIPES.length; i++) {
@@ -69,6 +70,19 @@
     return s.stage > 1 || s.res.fe > 0 || s.res.cr > 0 || s.highScore > 0;
   }
   function clear() { delRaw(); }
+  function getPadLayout() {
+    var s = load();
+    return s.padLayout || 'xbox';
+  }
+  function setPadLayout(layout) {
+    var s = load();
+    s.padLayout = layout === 'switch' ? 'switch' : 'xbox';
+    save(s);
+    return s.padLayout;
+  }
 
-  AF.Save = { load: load, save: save, hasSave: hasSave, clear: clear, sanitize: sanitize };
+  AF.Save = {
+    load: load, save: save, hasSave: hasSave, clear: clear, sanitize: sanitize,
+    getPadLayout: getPadLayout, setPadLayout: setPadLayout
+  };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
