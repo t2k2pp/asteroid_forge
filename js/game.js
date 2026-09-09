@@ -236,21 +236,24 @@
     var dt = Math.min(0.05, Math.max(0.0001, (t - G.last) / 1000 || 0.016));
     G.last = t;
     if (G.state === 'play') updatePlay(dt);
-    else {
-      // タイトル/ポーズ中も背景を動かす (みせもの)
+    else if (G.state !== 'pause' && G.state !== 'craft') {
+      // タイトル/オーバー画面のみ背景を動かす (アトラクト)。pause/craft は完全停止
       G.time += dt * 0.5;
       for (var i = 0; i < G.rocks.length; i++) G.rocks[i].update(dt * 0.6);
       if (G.state === 'title' && Math.random() < dt * 0.12 && G.rocks.length < 10) spawnRock(rndInt(0, 2), false);
     }
-    if (G.stars) G.stars.rotation.y += dt * 0.004;
-    G.fx.update(dt);
-    // カメラシェイク
-    if (G.shakeT > 0) {
-      G.shakeT = Math.max(0, G.shakeT - dt * 2.6);
-      var amp = G.shakeT * 2.4;
-      G.camera.position.set(G.camBase.x + rnd(-amp, amp), G.camBase.y + rnd(-amp, amp) * 0.5, G.camBase.z + rnd(-amp, amp) * 0.6);
-    } else {
-      G.camera.position.copy(G.camBase);
+    var frozen = (G.state === 'pause' || G.state === 'craft');
+    if (!frozen) {
+      if (G.stars) G.stars.rotation.y += dt * 0.004;
+      G.fx.update(dt);
+      // カメラシェイク
+      if (G.shakeT > 0) {
+        G.shakeT = Math.max(0, G.shakeT - dt * 2.6);
+        var amp = G.shakeT * 2.4;
+        G.camera.position.set(G.camBase.x + rnd(-amp, amp), G.camBase.y + rnd(-amp, amp) * 0.5, G.camBase.z + rnd(-amp, amp) * 0.6);
+      } else {
+        G.camera.position.copy(G.camBase);
+      }
     }
     if (G.state === 'play' || G.state === 'craft') UI.hud(snapshot());
     G.renderer.render(G.scene, G.camera);

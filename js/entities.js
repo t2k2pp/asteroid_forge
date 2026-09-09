@@ -77,7 +77,8 @@
   };
   Ship.prototype.forward = function (out) { out.x = -Math.sin(this.heading); out.z = -Math.cos(this.heading); return out; };
   Ship.prototype.update = function (dt, input, st, tSec) {
-    if (input.rot) this.heading += input.rot * C.ship.turnBase * st.turnMul * dt;
+    // heading 増分は -= : この座標系 (+X=右 / -Z=画面上) では heading 減少が時計回り (=Right キー) になる
+    if (input.rot) this.heading -= input.rot * C.ship.turnBase * st.turnMul * dt;
     this.group.rotation.y = this.heading;
     if (input.thrust) {
       var f = this.forward(Ship._tmp);
