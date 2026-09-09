@@ -30,6 +30,9 @@
     if (els.btnTitle) els.btnTitle.addEventListener('click', function () { cbs.toTitle && cbs.toTitle(); });
     if (els.btnCraftHud) els.btnCraftHud.addEventListener('click', function () { cbs.craftToggle && cbs.craftToggle(); });
     if (els.btnCraftClose) els.btnCraftClose.addEventListener('click', function () { cbs.closeCraft && cbs.closeCraft(); });
+    if (els.scrCraft) els.scrCraft.addEventListener('click', function (ev) {
+      if (ev.target === els.scrCraft) cbs.closeCraft && cbs.closeCraft();
+    });
     if (els.btnPadLayoutTitle) els.btnPadLayoutTitle.addEventListener('click', function () { cbs.togglePadLayout && cbs.togglePadLayout(); });
     if (els.btnPadLayoutPause) els.btnPadLayoutPause.addEventListener('click', function () { cbs.togglePadLayout && cbs.togglePadLayout(); });
 

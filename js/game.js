@@ -16,6 +16,7 @@
     rocks: [], bullets: [], pickups: [], raiders: [],
     input: { rot: 0, thrust: false, fire: false }, keys: {},
     padLayout: 'xbox', padConnected: false, padPrevButtons: {}, padPrevAxes: {}, craftCursor: 0,
+    pointer: { active: false, screenX: 0, screenY: 0, worldX: 0, worldZ: 0, inside: true, justDown: false },
     renderer: null, scene: null, camera: null, ship: null, fx: null, stars: null,
     camBase: null
   };
@@ -64,6 +65,10 @@
     document.addEventListener('visibilitychange', function () {
       if (document.hidden && G.state === 'play') setPaused(true);
     });
+    root.addEventListener('pointerdown', onPointerDown);
+    root.addEventListener('pointermove', onPointerMove);
+    root.addEventListener('pointerup', onPointerUp);
+    root.addEventListener('pointercancel', onPointerUp);
 
     SFX.setMuted(G.save.muted);
     UI.fillTitle(G.save);
@@ -79,6 +84,87 @@
     G.camera.aspect = root.innerWidth / root.innerHeight;
     G.camera.updateProjectionMatrix();
     G.renderer.setSize(root.innerWidth, root.innerHeight);
+  }
+
+  /* ================= マウス / タッチ (Pointer Events) ================= */
+  var _raycaster = new T.Raycaster();
+  var _arenaPlane = new T.Plane(new T.Vector3(0, 1, 0), -1); // Y = 1 平面 (自機飛行平面)
+  var _tmpVec = new T.Vector3();
+
+  function screenToWorldXZ(clientX, clientY, out) {
+    if (!G.camera) return null;
+    var target = out || _tmpVec;
+    var ndcX = (clientX / root.innerWidth) * 2 - 1;
+    var ndcY = -(clientY / root.innerHeight) * 2 + 1;
+    _raycaster.setFromCamera({ x: ndcX, y: ndcY }, G.camera);
+    if (_raycaster.ray.intersectPlane(_arenaPlane, target)) {
+      return target;
+    }
+    return null;
+  }
+
+  function isInsideArena(worldPos) {
+    if (!worldPos) return false;
+    return Math.abs(worldPos.x) <= C.arena.halfW && Math.abs(worldPos.z) <= C.arena.halfD;
+  }
+
+  function onPointerDown(e) {
+    if (e.target && e.target.closest && e.target.closest('button, details, #toast, .panel')) {
+      return;
+    }
+
+    if (G.state === 'title') {
+      S.hasSave() ? start(false) : start(true);
+      return;
+    }
+    if (G.state === 'over') {
+      UI.setScreen(null);
+      runFrom(G.save);
+      return;
+    }
+    if (G.state === 'craft') {
+      craftPanelOpen();
+      return;
+    }
+    if (G.state === 'pause') {
+      setPaused(false);
+      return;
+    }
+
+    if (G.state === 'play') {
+      var hit = screenToWorldXZ(e.clientX, e.clientY, _tmpVec);
+      if (!hit || !isInsideArena(hit)) {
+        // フィールド外をタップした場合: クラフト画面を開く (Pauseと同じく完全停止)
+        craftPanelOpen();
+        return;
+      }
+
+      G.pointer.active = true;
+      G.pointer.screenX = e.clientX;
+      G.pointer.screenY = e.clientY;
+      G.pointer.worldX = hit.x;
+      G.pointer.worldZ = hit.z;
+      G.pointer.inside = true;
+      G.pointer.justDown = true;
+      G.input.fire = true;
+    }
+  }
+
+  function onPointerMove(e) {
+    if (!G.pointer.active || G.state !== 'play') return;
+    var hit = screenToWorldXZ(e.clientX, e.clientY, _tmpVec);
+    if (hit) {
+      G.pointer.screenX = e.clientX;
+      G.pointer.screenY = e.clientY;
+      G.pointer.worldX = hit.x;
+      G.pointer.worldZ = hit.z;
+      G.pointer.inside = isInsideArena(hit);
+    }
+  }
+
+  function onPointerUp(e) {
+    G.pointer.active = false;
+    G.pointer.justDown = false;
   }
 
   /* ================= レイヤーライフサイクル ================= */
@@ -384,6 +470,31 @@
 
     /* --- 自機 --- */
     if (!G.shipDead) {
+      if (G.pointer.active) {
+        var pdx = G.pointer.worldX - shipPos.x;
+        var pdz = G.pointer.worldZ - shipPos.z;
+        var pdist = Math.hypot(pdx, pdz);
+        if (pdist > 1.2) {
+          var pTargetAngle = Math.atan2(-pdx, -pdz);
+          var pDiff = (pTargetAngle - G.ship.heading) % (Math.PI * 2);
+          if (pDiff > Math.PI) pDiff -= Math.PI * 2;
+          if (pDiff < -Math.PI) pDiff += Math.PI * 2;
+          var pTurnSpeed = C.ship.turnBase * st.turnMul;
+          var pMaxStep = pTurnSpeed * dt;
+          if (Math.abs(pDiff) <= pMaxStep) {
+            G.ship.heading = pTargetAngle;
+          } else {
+            G.ship.heading += Math.sign(pDiff) * pMaxStep;
+          }
+          G.ship.group.rotation.y = G.ship.heading;
+
+          if (pdist > 3.2 && Math.abs(pDiff) < 1.4) {
+            G.input.thrust = true;
+          }
+        }
+        G.input.fire = true;
+      }
+
       G.ship.update(dt, G.input, st, G.time);
       if (wrapPos(shipPos, 1.4)) G.fx.ring(shipPos, C.colors.bound, 3, 15, 0.4);
       if (G.invuln > 0) {
