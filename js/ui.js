@@ -18,6 +18,7 @@
       'btnContinue', 'btnNew', 'titleMeta',
       'btnResume', 'btnRetry', 'btnTitle',
       'btnCraftHud', 'btnCraftClose',
+      'btnPadLayoutTitle', 'btnPadLayoutPause',
       'craftList', 'craftFe', 'craftCr',
       'ovScore', 'ovBest', 'ovStage', 'ovDeaths'
     ].forEach(function (id) { els[id] = $(id); });
@@ -29,6 +30,8 @@
     if (els.btnTitle) els.btnTitle.addEventListener('click', function () { cbs.toTitle && cbs.toTitle(); });
     if (els.btnCraftHud) els.btnCraftHud.addEventListener('click', function () { cbs.craftToggle && cbs.craftToggle(); });
     if (els.btnCraftClose) els.btnCraftClose.addEventListener('click', function () { cbs.closeCraft && cbs.closeCraft(); });
+    if (els.btnPadLayoutTitle) els.btnPadLayoutTitle.addEventListener('click', function () { cbs.togglePadLayout && cbs.togglePadLayout(); });
+    if (els.btnPadLayoutPause) els.btnPadLayoutPause.addEventListener('click', function () { cbs.togglePadLayout && cbs.togglePadLayout(); });
 
     // クラフト行はクリック委譲 (再描画に耐える)
     if (els.craftList) els.craftList.addEventListener('click', function (ev) {
@@ -53,6 +56,7 @@
         ? '第 ' + save.stage + ' の帯 / Fe ' + save.res.fe + ' · Cr ' + save.res.cr + ' / ベスト ' + fmtN(save.highScore)
         : '新規パイロット登録 — すべての帯が未開拓';
     }
+    updatePadLayoutUI(save ? save.padLayout : 'xbox');
   }
 
   function fmtN(n) { return String(Math.floor(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
@@ -114,10 +118,11 @@
     toastTimer = setTimeout(function () { els.toast.classList.remove('show'); }, 1300);
   }
 
-  function craftPanel(s) {
+  function craftPanel(s, cursorIdx) {
     if (!els.craftList) return;
     if (els.craftFe) els.craftFe.textContent = s.res.fe;
     if (els.craftCr) els.craftCr.textContent = s.res.cr;
+    var cIdx = (typeof cursorIdx === 'number') ? cursorIdx : (s.craftCursor || 0);
     var html = '';
     L.RECIPES.forEach(function (r, idx) {
       var lv = s.upgrades[r.id] || 0;
@@ -126,7 +131,8 @@
       var next = maxed ? null : r.effect(lv + 1);
       var cost = maxed ? null : L.costFor(r.id, lv + 1);
       var afford = cost && L.canAfford(s.res, cost);
-      html += '<div class="craftRow' + (maxed ? ' maxed' : (afford ? '' : ' poor')) + '">'
+      var isCursor = idx === cIdx;
+      html += '<div class="craftRow' + (maxed ? ' maxed' : (afford ? '' : ' poor')) + (isCursor ? ' cursor' : '') + '">'
         + '<div class="crIdx">[' + (idx + 1) + ']</div>'
         + '<div class="crMain"><div class="crName">' + r.name + ' <span class="crLv">Lv' + lv + '/' + r.max + '</span></div>'
         + '<div class="crEff">' + cur + (maxed ? '' : ' → <b>' + next + '</b>') + '</div></div>'
@@ -139,6 +145,14 @@
     els.craftList.innerHTML = html;
   }
 
+  function updatePadLayoutUI(layout) {
+    var text = layout === 'switch'
+      ? '🎮 コントローラー配列: Switch (A決定/B戻る)'
+      : '🎮 コントローラー配列: Xbox (A決定/B戻る)';
+    if (els.btnPadLayoutTitle) els.btnPadLayoutTitle.textContent = text;
+    if (els.btnPadLayoutPause) els.btnPadLayoutPause.textContent = text;
+  }
+
   function overPanel(s) {
     if (els.ovScore) els.ovScore.textContent = fmtN(s.score);
     if (els.ovBest) els.ovBest.textContent = fmtN(s.best);
@@ -146,5 +160,9 @@
     if (els.ovDeaths) els.ovDeaths.textContent = String(s.deaths);
   }
 
-  root.AF.UI = { init: init, setScreen: setScreen, fillTitle: fillTitle, hud: hud, banner: banner, toast: toast, craftPanel: craftPanel, overPanel: overPanel };
+  root.AF.UI = {
+    init: init, setScreen: setScreen, fillTitle: fillTitle, hud: hud,
+    banner: banner, toast: toast, craftPanel: craftPanel, overPanel: overPanel,
+    updatePadLayoutUI: updatePadLayoutUI
+  };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

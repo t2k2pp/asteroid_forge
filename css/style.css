@@ -83,6 +83,18 @@ b.fe, .howto b.fe { color: var(--fe); } b.cr, .howto b.cr { color: var(--cr); }
 button { cursor: pointer; background: rgba(89, 247, 255, 0.06); color: var(--text); border: 1px solid var(--line); padding: 12px 18px; font-size: 15px; letter-spacing: 0.1em; transition: 0.15s; }
 button:hover:not(:disabled) { background: rgba(89, 247, 255, 0.16); color: #fff; box-shadow: 0 0 14px rgba(89, 247, 255, 0.35); }
 button.primary { border-color: var(--ship); color: #fff; }
+button.padToggle {
+  background: rgba(255, 215, 94, 0.08);
+  border-color: rgba(255, 215, 94, 0.45);
+  color: #ffd75e;
+  font-size: 13px;
+  padding: 8px 14px;
+}
+button.padToggle:hover {
+  background: rgba(255, 215, 94, 0.22);
+  color: #fff;
+  box-shadow: 0 0 14px rgba(255, 215, 94, 0.45);
+}
 button:disabled { opacity: 0.35; cursor: default; }
 
 .help { margin-top: 18px; text-align: left; font-size: 13px; border-top: 1px dashed rgba(89, 247, 255, 0.25); padding-top: 12px; }
@@ -97,7 +109,8 @@ button:disabled { opacity: 0.35; cursor: default; }
 .panel.craft { width: min(680px, 94vw); text-align: left; }
 .resLine { float: right; font-size: 13px; letter-spacing: 0.05em; color: var(--dim); margin-top: 6px; }
 #craftList { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
-.craftRow { display: grid; grid-template-columns: 42px 1fr auto; gap: 12px; align-items: center; border: 1px solid rgba(89, 247, 255, 0.2); background: rgba(10, 22, 38, 0.55); padding: 10px 14px; }
+.craftRow { display: grid; grid-template-columns: 42px 1fr auto; gap: 12px; align-items: center; border: 1px solid rgba(89, 247, 255, 0.2); background: rgba(10, 22, 38, 0.55); padding: 10px 14px; transition: 0.15s; }
+.craftRow.cursor { border-color: var(--ship); background: rgba(89, 247, 255, 0.22); box-shadow: 0 0 16px rgba(89, 247, 255, 0.45); }
 .craftRow.poor { opacity: 0.55; }
 .craftRow.maxed { border-color: rgba(255, 215, 94, 0.5); }
 .crIdx { color: var(--dim); font-size: 12px; text-align: center; }

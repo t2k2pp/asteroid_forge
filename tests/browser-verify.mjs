@@ -139,7 +139,66 @@ await sleep(600);
 const retried = await page.evaluate(() => ({ state: AF.Game.state(), lives: AF.Game._G.lives }));
 ok(retried.state === 'play' && retried.lives === 3, 'Enter で同じ帯に再出撃 (lives=3)');
 
-/* --- 8. コンソールエラーゼロ --- */
+/* --- 8. ゲームパッド操作 & 配列切替 (Xbox / Switch) 検証 --- */
+await page.evaluate(() => {
+  window._mockGamepad = {
+    id: 'Xbox Wireless Controller (STANDARD GAMEPAD)',
+    connected: true,
+    buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })),
+    axes: [0, 0, 0, 0]
+  };
+  navigator.getGamepads = () => [window._mockGamepad];
+});
+await sleep(100);
+
+const padConn = await page.evaluate(() => AF.Game._G.padConnected);
+ok(padConn, 'ゲームパッド接続が検知される');
+
+const h0 = await page.evaluate(() => AF.Game._G.ship.heading);
+await page.evaluate(() => { window._mockGamepad.axes[0] = 0.8; });
+await sleep(200);
+await page.evaluate(() => { window._mockGamepad.axes[0] = 0; });
+const hRight = await page.evaluate(() => AF.Game._G.ship.heading);
+ok(hRight < h0, 'ゲームパッド: 左スティック右で時計回りに旋回 (' + h0.toFixed(2) + ' → ' + hRight.toFixed(2) + ')');
+
+const bulletsBefore = await page.evaluate(() => AF.Game._G.bullets.filter(b => b.alive).length);
+await page.evaluate(() => { window._mockGamepad.buttons[7] = { pressed: true, value: 1 }; });
+await sleep(150);
+await page.evaluate(() => { window._mockGamepad.buttons[7] = { pressed: false, value: 0 }; });
+const bulletsAfter = await page.evaluate(() => AF.Game._G.bullets.filter(b => b.alive).length);
+ok(bulletsAfter > bulletsBefore, 'ゲームパッド: RT で弾が発射される');
+
+await page.evaluate(() => { window._mockGamepad.buttons[9] = { pressed: true, value: 1 }; });
+await sleep(50);
+await page.evaluate(() => { window._mockGamepad.buttons[9] = { pressed: false, value: 0 }; });
+await sleep(150);
+ok(await page.evaluate(() => AF.Game.state() === 'pause'), 'ゲームパッド: Startボタンでポーズ画面へ遷移');
+
+await page.click('#btnPadLayoutPause');
+const layoutAfterClick = await page.evaluate(() => AF.Game._G.padLayout);
+ok(layoutAfterClick === 'switch', 'UIトグルクリックで Switch 配列に切り替わる');
+const btnText = await page.evaluate(() => document.getElementById('btnPadLayoutPause').textContent);
+ok(/Switch/.test(btnText), 'ポーズ画面のボタン表示が Switch 配列に更新される (' + btnText + ')');
+
+await page.evaluate(() => { window._mockGamepad.buttons[9] = { pressed: true, value: 1 }; });
+await sleep(50);
+await page.evaluate(() => { window._mockGamepad.buttons[9] = { pressed: false, value: 0 }; });
+await sleep(150);
+ok(await page.evaluate(() => AF.Game.state() === 'play'), 'ゲームパッド: Startボタンでポーズ解除');
+
+await page.evaluate(() => { window._mockGamepad.buttons[3] = { pressed: true, value: 1 }; });
+await sleep(50);
+await page.evaluate(() => { window._mockGamepad.buttons[3] = { pressed: false, value: 0 }; });
+await sleep(150);
+ok(await page.evaluate(() => AF.Game.state() === 'craft'), 'ゲームパッド: Switch配列Xボタンでクラフト開閉');
+
+await page.evaluate(() => { window._mockGamepad.buttons[0] = { pressed: true, value: 1 }; });
+await sleep(50);
+await page.evaluate(() => { window._mockGamepad.buttons[0] = { pressed: false, value: 0 }; });
+await sleep(150);
+ok(await page.evaluate(() => AF.Game.state() === 'play'), 'ゲームパッド: Switch配列Bボタンでクラフトを閉じる');
+
+/* --- 9. コンソールエラーゼロ --- */
 await sleep(500);
 const realErrors = errors.filter(e => !/favicon|Autoplay|AudioContext/i.test(e));
 ok(realErrors.length === 0, 'コンソールエラー / 未捕捉例外 ゼロ' + (realErrors.length ? ': ' + realErrors.join(' | ') : ''));

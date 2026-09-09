@@ -56,15 +56,17 @@
     <div class="btnRow">
       <button id="btnContinue" class="primary">▶ 继续出撃 (保存済みから)</button>
       <button id="btnNew" class="primary">✦ 新しいキャンペーン</button>
+      <button id="btnPadLayoutTitle" type="button" class="padToggle">🎮 コントローラー配列: Xbox (A決定/B戻る)</button>
     </div>
     <details class="help">
       <summary>操作方法 / 遊び方</summary>
       <table>
-        <tr><td>← → / A D</td><td>機首を回す (その場回転)</td></tr>
+        <tr><td>← → / A D</td><td>機首を回す (右=時計回り / 左=反時計回り)</td></tr>
         <tr><td>↑ / W</td><td>推進 (慣性で滑り続ける — 1979 そのまま)</td></tr>
         <tr><td>Space</td><td>レーザー射撃</td></tr>
         <tr><td>Tab / C</td><td>クラフトパネル (ポーズ中は数字キー 1〜5 で即購入)</td></tr>
         <tr><td>P / Esc / M</td><td>ポーズ / 閉じる / ミュート</td></tr>
+        <tr><td>🎮 コントローラー</td><td>左スティック・十字キー: 旋回 / 推進<br>RT / RB / 射撃ボタン: 連射<br>Start: ポーズ · Y/X/Select: クラフト開閉<br>十字上下+決定: クラフト購入</td></tr>
       </table>
       <p class="howto">
         隕石を壊して <b class="fe">Fe(鉄鉱石)</b> と <b class="cr">Cr(結晶)</b> を採掘し、
@@ -73,7 +75,7 @@
         画面端はワープして反対側へ。大きな隕石は壊すと分割される。緑く光るジオード隕石は Cr を多く落とす。
       </p>
     </details>
-    <p class="foot">v1.0 — Three.js 2.5D / キーボード操作 / local:af_save_v1</p>
+    <p class="foot">v1.0 — Three.js 2.5D / キーボード & ゲームパッド対応 / local:af_save_v1</p>
   </div>
 </section>
 
@@ -81,7 +83,10 @@
 <section id="scrPause" class="screen">
   <div class="panel small">
     <h2>PAUSED</h2>
-    <button id="btnResume" class="primary">再開 (P / Esc)</button>
+    <div class="btnRow">
+      <button id="btnResume" class="primary">再開 (P / Esc / Start)</button>
+      <button id="btnPadLayoutPause" type="button" class="padToggle">🎮 コントローラー配列: Xbox (A決定/B戻る)</button>
+    </div>
   </div>
 </section>
 
