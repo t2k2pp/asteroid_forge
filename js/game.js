@@ -15,6 +15,7 @@
     raidersQueue: 0, raiderT: 0, plan: null,
     rocks: [], bullets: [], pickups: [], raiders: [],
     input: { rot: 0, thrust: false, fire: false }, keys: {},
+    padLayout: 'xbox', padConnected: false, padPrevButtons: {}, padPrevAxes: {}, craftCursor: 0,
     renderer: null, scene: null, camera: null, ship: null, fx: null, stars: null,
     camBase: null
   };
@@ -52,15 +53,18 @@
       retry: function () { if (G.state === 'over') { UI.setScreen(null); runFrom(G.save); } },
       toTitle: function () { toTitle(); },
       craftToggle: function () { craftPanelOpen(); },
-      closeCraft: function () { if (G.state === 'craft') { G.state = 'play'; UI.setScreen(null); } }
+      closeCraft: function () { if (G.state === 'craft') { G.state = 'play'; UI.setScreen(null); } },
+      togglePadLayout: function () { return togglePadLayout(); }
     });
+
+    G.save = S.load();
+    G.padLayout = (G.save && G.save.padLayout) ? G.save.padLayout : S.getPadLayout();
 
     root.addEventListener('resize', onResize);
     document.addEventListener('visibilitychange', function () {
       if (document.hidden && G.state === 'play') setPaused(true);
     });
 
-    G.save = S.load();
     SFX.setMuted(G.save.muted);
     UI.fillTitle(G.save);
     UI.setScreen('title');
@@ -231,10 +235,124 @@
     }
   }
 
+  /* ================= ゲームパッド入力 (HTML5 Gamepad API) ================= */
+  function pollGamepad(dt) {
+    if (!root.navigator || !root.navigator.getGamepads) return;
+    var pads = root.navigator.getGamepads();
+    if (!pads) return;
+    var gp = null;
+    for (var i = 0; i < pads.length; i++) {
+      if (pads[i] && pads[i].connected) { gp = pads[i]; break; }
+    }
+    if (!gp) {
+      if (G.padConnected) {
+        G.padConnected = false;
+        UI.toast('🎮 コントローラー切断');
+      }
+      return;
+    }
+    if (!G.padConnected) {
+      G.padConnected = true;
+      var name = gp.id ? gp.id.replace(/\s*\(.*?\)/, '').slice(0, 20) : 'コントローラー';
+      UI.toast('🎮 接続: ' + name);
+    }
+
+    var btns = gp.buttons || [];
+    var isDown = function (idx) { return !!(btns[idx] && (btns[idx].pressed || btns[idx].value > 0.4)); };
+    var justPressed = function (idx) {
+      var now = isDown(idx);
+      var prev = !!G.padPrevButtons[idx];
+      return now && !prev;
+    };
+
+    var deadzone = 0.18;
+    var ax = (gp.axes && typeof gp.axes[0] === 'number') ? gp.axes[0] : 0;
+    var ay = (gp.axes && typeof gp.axes[1] === 'number') ? gp.axes[1] : 0;
+    var stickX = Math.abs(ax) > deadzone ? ax : 0;
+    var stickY = Math.abs(ay) > deadzone ? ay : 0;
+
+    var prevStickY = G.padPrevAxes.y || 0;
+    var stickUpPressed = stickY < -0.5 && prevStickY >= -0.5;
+    var stickDownPressed = stickY > 0.5 && prevStickY <= 0.5;
+
+    var layout = G.padLayout || 'xbox';
+    var confirmIdx = layout === 'switch' ? 1 : 0; // Switch: A(右) / Xbox: A(下)
+    var cancelIdx  = layout === 'switch' ? 0 : 1; // Switch: B(下) / Xbox: B(右)
+    var craftIdx   = layout === 'switch' ? 3 : 2; // Switch: X(上) / Xbox: X(左)
+    var altCraftIdx = layout === 'switch' ? 2 : 3;
+
+    if (G.state === 'title') {
+      if (justPressed(confirmIdx) || justPressed(9) || justPressed(0) || justPressed(1)) {
+        S.hasSave() ? start(false) : start(true);
+      }
+    } else if (G.state === 'over') {
+      if (justPressed(confirmIdx) || justPressed(9) || justPressed(0) || justPressed(1)) {
+        UI.setScreen(null);
+        runFrom(G.save);
+      }
+    } else if (G.state === 'play') {
+      if (justPressed(9)) {
+        setPaused(true);
+      } else if (justPressed(craftIdx) || justPressed(altCraftIdx) || justPressed(8)) {
+        craftPanelOpen();
+      }
+    } else if (G.state === 'pause') {
+      if (justPressed(9) || justPressed(cancelIdx) || justPressed(confirmIdx)) {
+        setPaused(false);
+      }
+    } else if (G.state === 'craft') {
+      if (justPressed(cancelIdx) || justPressed(9) || justPressed(craftIdx) || justPressed(8)) {
+        craftPanelOpen();
+      } else {
+        if (justPressed(12) || stickUpPressed) {
+          G.craftCursor = (G.craftCursor - 1 + L.RECIPES.length) % L.RECIPES.length;
+          SFX.play('click');
+          UI.craftPanel(snapshot(), G.craftCursor);
+        } else if (justPressed(13) || stickDownPressed) {
+          G.craftCursor = (G.craftCursor + 1) % L.RECIPES.length;
+          SFX.play('click');
+          UI.craftPanel(snapshot(), G.craftCursor);
+        } else if (justPressed(confirmIdx)) {
+          craft(L.RECIPES[G.craftCursor].id);
+          UI.craftPanel(snapshot(), G.craftCursor);
+        }
+      }
+    }
+
+    if (G.state === 'play') {
+      var padRot = 0;
+      if (stickX !== 0) padRot = stickX;
+      else if (isDown(15)) padRot = 1;
+      else if (isDown(14)) padRot = -1;
+
+      var padThrust = stickY < -0.3 || isDown(12) || isDown(7) || isDown(6);
+      if (layout === 'xbox') {
+        if (isDown(0)) padThrust = true;
+      }
+
+      var padFire = isDown(7) || isDown(5);
+      if (layout === 'xbox') {
+        if (isDown(2)) padFire = true;
+      } else {
+        if (isDown(1) || isDown(2) || isDown(3)) padFire = true;
+      }
+
+      var kbRot = ((G.keys['ArrowRight'] || G.keys['KeyD']) ? 1 : 0) - ((G.keys['ArrowLeft'] || G.keys['KeyA']) ? 1 : 0);
+      G.input.rot = kbRot !== 0 ? kbRot : padRot;
+      G.input.thrust = !!(G.keys['ArrowUp'] || G.keys['KeyW']) || padThrust;
+      G.input.fire = !!G.keys['Space'] || padFire;
+    }
+
+    for (var b = 0; b < 17; b++) G.padPrevButtons[b] = isDown(b);
+    G.padPrevAxes.x = stickX;
+    G.padPrevAxes.y = stickY;
+  }
+
   /* ================= メインループ ================= */
   function frame(t) {
     var dt = Math.min(0.05, Math.max(0.0001, (t - G.last) / 1000 || 0.016));
     G.last = t;
+    pollGamepad(dt);
     if (G.state === 'play') updatePlay(dt);
     else if (G.state !== 'pause' && G.state !== 'craft') {
       // タイトル/オーバー画面のみ背景を動かす (アトラクト)。pause/craft は完全停止
@@ -596,7 +714,7 @@
   function craftPanelOpen() {
     if (G.state === 'play' || G.state === 'pause') {
       G.state = 'craft';
-      UI.craftPanel(snapshot());
+      UI.craftPanel(snapshot(), G.craftCursor);
       UI.setScreen('craft');
       SFX.play('click');
     } else if (G.state === 'craft') {
@@ -609,6 +727,7 @@
     G.save.stage = Math.max(G.save.stage || 1, G.stage);
     G.save.res = { fe: Math.floor(G.res.fe), cr: Math.floor(G.res.cr) };
     G.save.upgrades = G.upg;
+    G.save.padLayout = G.padLayout;
     if (G.score > G.save.highScore) G.save.highScore = Math.floor(G.score);
     G.save.muted = SFX.muted();
     return S.save(G.save);
@@ -641,8 +760,21 @@
       hp: Math.max(0, G.hp), maxHp: L.hullHp(G.upg.hull),
       shield: G.shield, maxShield: L.shieldCap(G.upg.shield),
       comboMult: G.chainT > 0 ? L.comboMult(G.chain) : 1,
-      muted: SFX.muted(), upgrades: G.upg
+      muted: SFX.muted(), upgrades: G.upg,
+      padLayout: G.padLayout, padConnected: G.padConnected,
+      craftCursor: G.craftCursor
     };
+  }
+
+  function setPadLayout(layout) {
+    G.padLayout = S.setPadLayout(layout);
+    if (G.save) G.save.padLayout = G.padLayout;
+    if (UI.updatePadLayoutUI) UI.updatePadLayoutUI(G.padLayout);
+    UI.toast('🎮 配列: ' + (G.padLayout === 'switch' ? 'Switch (A右/B下)' : 'Xbox (A下/B右)'));
+    return G.padLayout;
+  }
+  function togglePadLayout() {
+    return setPadLayout(G.padLayout === 'switch' ? 'xbox' : 'switch');
   }
 
   /* ================= キー入力 ================= */
@@ -677,6 +809,7 @@
 
   AF.Game = {
     init: init, onKey: onKey, snapshot: snapshot, state: function () { return G.state; },
+    setPadLayout: setPadLayout, togglePadLayout: togglePadLayout,
     _G: G
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
