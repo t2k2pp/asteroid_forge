@@ -214,7 +214,22 @@ await page.mouse.move(640, 360);
 await page.mouse.down();
 await page.mouse.move(950, 360, { steps: 5 });
 await sleep(250);
+const thrustDuringDrag = await page.evaluate(() => ({
+  thrust: AF.Game._G.input.thrust,
+  thrusterVisible: AF.Game._G.ship.thruster.visible,
+  pointerActive: AF.Game._G.pointer.active
+}));
+ok(thrustDuringDrag.thrust && thrustDuringDrag.thrusterVisible && thrustDuringDrag.pointerActive, 'マウス: ドラッグ中はスラスターが起動する (thrust=true)');
+
 await page.mouse.up();
+await sleep(100);
+const thrustAfterUp = await page.evaluate(() => ({
+  thrust: AF.Game._G.input.thrust,
+  thrusterVisible: AF.Game._G.ship.thruster.visible,
+  pointerActive: AF.Game._G.pointer.active
+}));
+ok(!thrustAfterUp.thrust && !thrustAfterUp.thrusterVisible && !thrustAfterUp.pointerActive, 'マウス: クリック解放時にスラスターが即時停止する (thrust=false, visible=false)');
+
 const hAfterDrag = await page.evaluate(() => AF.Game._G.ship.heading);
 ok(hAfterDrag < hBeforeDrag, 'マウス: 右側へドラッグして時計回りに機首が追従旋回 (' + hBeforeDrag.toFixed(2) + ' → ' + hAfterDrag.toFixed(2) + ')');
 
