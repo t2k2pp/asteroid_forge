@@ -34,9 +34,8 @@
 
     var cp = C.camera.pos;
     G.camera = new T.PerspectiveCamera(C.camera.fov, root.innerWidth / root.innerHeight, 0.1, 1200);
-    G.camera.position.set(cp[0], cp[1], cp[2]);
-    G.camera.lookAt(new T.Vector3(C.camera.look[0], C.camera.look[1], C.camera.look[2]));
-    G.camBase = G.camera.position.clone();
+    G.camBase = new T.Vector3(cp[0], cp[1], cp[2]);
+    updateCamera();
 
     G.stars = AF.world.buildStars(); G.scene.add(G.stars);
     G.scene.add(AF.world.buildNebula());
@@ -80,9 +79,32 @@
     G.renderer.setAnimationLoop(frame);
   }
 
-  function onResize() {
-    G.camera.aspect = root.innerWidth / root.innerHeight;
+  function updateCamera() {
+    if (!G.camera) return;
+    var w = root.innerWidth, h = root.innerHeight;
+    var aspect = w / h;
+    G.camera.aspect = aspect;
+
+    // 画面が縦長 (aspect < 1.18) の場合、視野角の狭まりに合わせて注視点からカメラ距離を自動調整
+    // 魚眼歪みを起こさずにアリーナ全体 (132x132) が自然に画面内に収まる
+    var baseAspect = 1.18;
+    var zoomScale = Math.max(1.0, baseAspect / aspect);
+
+    var cp = C.camera.pos;
+    var look = C.camera.look;
+    G.camBase.x = look[0] + (cp[0] - look[0]) * zoomScale;
+    G.camBase.y = look[1] + (cp[1] - look[1]) * zoomScale;
+    G.camBase.z = look[2] + (cp[2] - look[2]) * zoomScale;
+
+    if (G.shakeT <= 0) {
+      G.camera.position.copy(G.camBase);
+    }
+    G.camera.lookAt(new T.Vector3(look[0], look[1], look[2]));
     G.camera.updateProjectionMatrix();
+  }
+
+  function onResize() {
+    updateCamera();
     G.renderer.setSize(root.innerWidth, root.innerHeight);
   }
 
