@@ -21,9 +21,10 @@ html, body {
   font-family: "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
   -webkit-font-smoothing: antialiased;
   user-select: none;
+  touch-action: none;
 }
 
-#scene, #scene canvas { position: fixed; inset: 0; display: block; }
+#scene, #scene canvas { position: fixed; inset: 0; display: block; touch-action: none; }
 
 .num, .lives, .tag, .crIdx, #hStage, h1, h2, button, .best, .meta, table td:first-child {
   font-family: Consolas, "Courier New", ui-monospace, monospace;

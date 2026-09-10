@@ -198,7 +198,38 @@ await page.evaluate(() => { window._mockGamepad.buttons[0] = { pressed: false, v
 await sleep(150);
 ok(await page.evaluate(() => AF.Game.state() === 'play'), 'ゲームパッド: Switch配列Bボタンでクラフトを閉じる');
 
-/* --- 9. コンソールエラーゼロ --- */
+/* --- 9. マウス / タッチ操作 (追従旋回・タップ射撃・フィールド外クラフト停止) 検証 --- */
+const bulletsBeforeClick = await page.evaluate(() => AF.Game._G.bullets.filter(b => b.alive).length);
+await page.mouse.click(640, 360);
+await sleep(150);
+const bulletsAfterClick = await page.evaluate(() => AF.Game._G.bullets.filter(b => b.alive).length);
+ok(bulletsAfterClick > bulletsBeforeClick, 'マウス: フィールド内クリックで弾が発射される');
+
+await page.evaluate(() => {
+  AF.Game._G.ship.reset();
+});
+await sleep(100);
+const hBeforeDrag = await page.evaluate(() => AF.Game._G.ship.heading);
+await page.mouse.move(640, 360);
+await page.mouse.down();
+await page.mouse.move(950, 360, { steps: 5 });
+await sleep(250);
+await page.mouse.up();
+const hAfterDrag = await page.evaluate(() => AF.Game._G.ship.heading);
+ok(hAfterDrag < hBeforeDrag, 'マウス: 右側へドラッグして時計回りに機首が追従旋回 (' + hBeforeDrag.toFixed(2) + ' → ' + hAfterDrag.toFixed(2) + ')');
+
+await page.mouse.click(100, 20);
+await sleep(200);
+const craftOpened = await page.evaluate(() => AF.Game.state() === 'craft');
+ok(craftOpened, 'マウス: フィールド外クリックでクラフト画面が開きゲームが一時停止する');
+ok(await page.isVisible('#scrCraft.show'), 'クラフトパネルが表示される');
+
+await page.mouse.click(40, 40);
+await sleep(200);
+const playResumed = await page.evaluate(() => AF.Game.state() === 'play');
+ok(playResumed, 'マウス: クラフト外側クリックでクラフトが閉じ戦闘に復帰する');
+
+/* --- 10. コンソールエラーゼロ --- */
 await sleep(500);
 const realErrors = errors.filter(e => !/favicon|Autoplay|AudioContext/i.test(e));
 ok(realErrors.length === 0, 'コンソールエラー / 未捕捉例外 ゼロ' + (realErrors.length ? ': ' + realErrors.join(' | ') : ''));

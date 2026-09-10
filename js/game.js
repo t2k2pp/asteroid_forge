@@ -108,6 +108,30 @@
     return Math.abs(worldPos.x) <= C.arena.halfW && Math.abs(worldPos.z) <= C.arena.halfD;
   }
 
+  function tryFireShip() {
+    if (!G.ship || G.shipDead || G.clearT >= 0 || G.fireCd > 0) return false;
+    var w = L.weaponStats(G.upg.weapon);
+    var shipPos = G.ship.group.position;
+    var fired = false;
+    for (var i = 0; i < w.shots; i++) {
+      var bl = acquireBullet();
+      if (!bl) break;
+      var off = w.shots > 1 ? (i - (w.shots - 1) / 2) * w.spread * 2.4 : 0;
+      var ang = G.ship.heading + off;
+      var dx = -Math.sin(ang), dz = -Math.cos(ang);
+      var spd = C.bullet.speed * (1 + 0.06 * (G.upg.weapon - 1));
+      bl.reset(
+        shipPos.x + dx * 3.4, shipPos.z + dz * 3.4,
+        dx * spd + G.ship.vel.x * C.bullet.inheritMul,
+        dz * spd + G.ship.vel.z * C.bullet.inheritMul,
+        w.dmg, C.bullet.life, 'p'
+      );
+      fired = true;
+    }
+    if (fired) { SFX.play('shoot'); G.fireCd = w.cd; }
+    return fired;
+  }
+
   function onPointerDown(e) {
     if (e.target && e.target.closest && e.target.closest('button, details, #toast, .panel')) {
       return;
@@ -146,7 +170,19 @@
       G.pointer.worldZ = hit.z;
       G.pointer.inside = true;
       G.pointer.justDown = true;
+      G.pointer.pendingFire = true;
       G.input.fire = true;
+
+      // タップした方向へ瞬時に旋回
+      var pdx = hit.x - G.ship.group.position.x;
+      var pdz = hit.z - G.ship.group.position.z;
+      if (Math.hypot(pdx, pdz) > 1.2) {
+        G.ship.heading = Math.atan2(-pdx, -pdz);
+        G.ship.group.rotation.y = G.ship.heading;
+      }
+      if (tryFireShip()) {
+        G.pointer.pendingFire = false;
+      }
     }
   }
 
@@ -426,7 +462,7 @@
       var kbRot = ((G.keys['ArrowRight'] || G.keys['KeyD']) ? 1 : 0) - ((G.keys['ArrowLeft'] || G.keys['KeyA']) ? 1 : 0);
       G.input.rot = kbRot !== 0 ? kbRot : padRot;
       G.input.thrust = !!(G.keys['ArrowUp'] || G.keys['KeyW']) || padThrust;
-      G.input.fire = !!G.keys['Space'] || padFire;
+      G.input.fire = !!G.keys['Space'] || padFire || G.pointer.active || G.pointer.pendingFire;
     }
 
     for (var b = 0; b < 17; b++) G.padPrevButtons[b] = isDown(b);
@@ -517,25 +553,8 @@
 
     /* --- 射撃 --- */
     G.fireCd -= dt;
-    if (G.input.fire && G.fireCd <= 0 && !G.shipDead && G.clearT < 0) {
-      var w = L.weaponStats(G.upg.weapon);
-      var fired = false;
-      for (var i = 0; i < w.shots; i++) {
-        var bl = acquireBullet();
-        if (!bl) break;
-        var off = w.shots > 1 ? (i - (w.shots - 1) / 2) * w.spread * 2.4 : 0;
-        var ang = G.ship.heading + off;
-        var dx = -Math.sin(ang), dz = -Math.cos(ang);
-        var spd = C.bullet.speed * (1 + 0.06 * (G.upg.weapon - 1));
-        bl.reset(
-          shipPos.x + dx * 3.4, shipPos.z + dz * 3.4,
-          dx * spd + G.ship.vel.x * C.bullet.inheritMul,
-          dz * spd + G.ship.vel.z * C.bullet.inheritMul,
-          w.dmg, C.bullet.life, 'p'
-        );
-        fired = true;
-      }
-      if (fired) { SFX.play('shoot'); G.fireCd = w.cd; }
+    if ((G.input.fire || G.pointer.pendingFire) && !G.shipDead && G.clearT < 0) {
+      if (tryFireShip()) G.pointer.pendingFire = false;
     }
 
     /* --- エンティティ移動 --- */
