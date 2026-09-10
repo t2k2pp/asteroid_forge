@@ -611,7 +611,12 @@
     for (j = 0; j < G.pickups.length; j++) {
       var p = G.pickups[j];
       if (!p.active) continue;
-      if (p.update(dt, G.time, shipPos, mag)) collectPickup(p);
+      if (p.update(dt, G.time, shipPos, mag)) {
+        collectPickup(p);
+      } else if (wrapPos(p.mesh.position, 0.8)) {
+        var col = p.kind === 'fe' ? C.colors.pickFe : C.colors.pickCr;
+        G.fx.ring(p.mesh.position, col, 1.5, 10, 0.3);
+      }
     }
     // レイド機
     if (G.raidersQueue > 0) {

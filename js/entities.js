@@ -231,6 +231,12 @@
     if (!this.active) return false;
     var p = this.mesh.position;
     var dx = shipPos.x - p.x, dz = shipPos.z - p.z;
+    if (C.arena && C.arena.w && C.arena.d) {
+      if (dx > C.arena.halfW) dx -= C.arena.w;
+      else if (dx < -C.arena.halfW) dx += C.arena.w;
+      if (dz > C.arena.halfD) dz -= C.arena.d;
+      else if (dz < -C.arena.halfD) dz += C.arena.d;
+    }
     var d = Math.sqrt(dx * dx + dz * dz);
     if (d < magnetR && d > 0.001) {
       var acc = C.pickup.accel * dt;
