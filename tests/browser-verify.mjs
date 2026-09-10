@@ -244,7 +244,26 @@ await sleep(200);
 const playResumed = await page.evaluate(() => AF.Game.state() === 'play');
 ok(playResumed, 'マウス: クラフト外側クリックでクラフトが閉じ戦闘に復帰する');
 
-/* --- 10. コンソールエラーゼロ --- */
+/* --- 10. 資源 (Pickup) のスクリーンラップ (境界ワープ) 検証 --- */
+await page.evaluate(() => {
+  AF.Game.dropResource(AF.CFG.arena.halfW - 0.5, 0, 'fe', 10);
+  var p = AF.Game._G.pickups.find(x => x.active && x.kind === 'fe');
+  p.velX = 35; // 右端境界の外側へ向けて飛ばす
+  p.velZ = 0;
+});
+await sleep(200);
+const wrapCheck = await page.evaluate(() => {
+  var p = AF.Game._G.pickups.find(x => x.active && x.kind === 'fe');
+  return {
+    active: p ? p.active : false,
+    x: p ? p.mesh.position.x : 0,
+    halfW: AF.CFG.arena.halfW
+  };
+});
+ok(wrapCheck.active && wrapCheck.x < 0, '資源: 右端境界を超えた資源が反対側 (左端) からワープ出現する (x=' + wrapCheck.x.toFixed(1) + ')');
+ok(Math.abs(wrapCheck.x) <= wrapCheck.halfW + 1.0, '資源: マップ外へ脱出せずアリーナ内に安全に保持される');
+
+/* --- 11. コンソールエラーゼロ --- */
 await sleep(500);
 const realErrors = errors.filter(e => !/favicon|Autoplay|AudioContext/i.test(e));
 ok(realErrors.length === 0, 'コンソールエラー / 未捕捉例外 ゼロ' + (realErrors.length ? ': ' + realErrors.join(' | ') : ''));

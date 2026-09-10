@@ -982,6 +982,7 @@
   AF.Game = {
     init: init, onKey: onKey, snapshot: snapshot, state: function () { return G.state; },
     setPadLayout: setPadLayout, togglePadLayout: togglePadLayout,
+    dropResource: dropResource,
     _G: G
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
