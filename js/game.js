@@ -201,6 +201,7 @@
   function onPointerUp(e) {
     G.pointer.active = false;
     G.pointer.justDown = false;
+    G.pointer.pendingFire = false;
   }
 
   /* ================= レイヤーライフサイクル ================= */
@@ -359,9 +360,10 @@
 
   /* ================= ゲームパッド入力 (HTML5 Gamepad API) ================= */
   function pollGamepad(dt) {
-    if (!root.navigator || !root.navigator.getGamepads) return;
+    var result = { rot: 0, thrust: false, fire: false };
+    if (!root.navigator || !root.navigator.getGamepads) return result;
     var pads = root.navigator.getGamepads();
-    if (!pads) return;
+    if (!pads) return result;
     var gp = null;
     for (var i = 0; i < pads.length; i++) {
       if (pads[i] && pads[i].connected) { gp = pads[i]; break; }
@@ -371,7 +373,7 @@
         G.padConnected = false;
         UI.toast('🎮 コントローラー切断');
       }
-      return;
+      return result;
     }
     if (!G.padConnected) {
       G.padConnected = true;
@@ -459,22 +461,82 @@
         if (isDown(1) || isDown(2) || isDown(3)) padFire = true;
       }
 
-      var kbRot = ((G.keys['ArrowRight'] || G.keys['KeyD']) ? 1 : 0) - ((G.keys['ArrowLeft'] || G.keys['KeyA']) ? 1 : 0);
-      G.input.rot = kbRot !== 0 ? kbRot : padRot;
-      G.input.thrust = !!(G.keys['ArrowUp'] || G.keys['KeyW']) || padThrust;
-      G.input.fire = !!G.keys['Space'] || padFire || G.pointer.active || G.pointer.pendingFire;
+      result.rot = padRot;
+      result.thrust = padThrust;
+      result.fire = padFire;
     }
 
     for (var b = 0; b < 17; b++) G.padPrevButtons[b] = isDown(b);
     G.padPrevAxes.x = stickX;
     G.padPrevAxes.y = stickY;
+
+    return result;
+  }
+
+  /* ================= 入力状態の毎フレーム合成・リセット ================= */
+  function updateInputs(dt) {
+    var pad = pollGamepad(dt) || { rot: 0, thrust: false, fire: false };
+
+    if (G.state !== 'play' || G.shipDead) {
+      G.input.rot = 0;
+      G.input.thrust = false;
+      G.input.fire = false;
+      return;
+    }
+
+    // キーボード入力
+    var kbRot = ((G.keys['ArrowRight'] || G.keys['KeyD']) ? 1 : 0) - ((G.keys['ArrowLeft'] || G.keys['KeyA']) ? 1 : 0);
+    var kbThrust = !!(G.keys['ArrowUp'] || G.keys['KeyW']);
+    var kbFire = !!G.keys['Space'];
+
+    // ポインター (マウス / タッチ) 入力
+    var pointerThrust = false;
+    var pointerFire = false;
+
+    if (G.pointer.active && G.ship && G.ship.group) {
+      var shipPos = G.ship.group.position;
+      var pdx = G.pointer.worldX - shipPos.x;
+      var pdz = G.pointer.worldZ - shipPos.z;
+      var pdist = Math.hypot(pdx, pdz);
+
+      if (pdist > 1.2) {
+        var pTargetAngle = Math.atan2(-pdx, -pdz);
+        var pDiff = (pTargetAngle - G.ship.heading) % (Math.PI * 2);
+        if (pDiff > Math.PI) pDiff -= Math.PI * 2;
+        if (pDiff < -Math.PI) pDiff += Math.PI * 2;
+        var st = L.engineStats(G.upg ? G.upg.engine : 1);
+        var pTurnSpeed = C.ship.turnBase * st.turnMul;
+        var pMaxStep = pTurnSpeed * dt;
+        if (Math.abs(pDiff) <= pMaxStep) {
+          G.ship.heading = pTargetAngle;
+        } else {
+          G.ship.heading += Math.sign(pDiff) * pMaxStep;
+        }
+        G.ship.group.rotation.y = G.ship.heading;
+
+        // クリック/ドラッグ中かつ距離・機首方向が合致している時のみスラスターをON
+        if (pdist > 3.2 && Math.abs(pDiff) < 1.4) {
+          pointerThrust = true;
+        }
+      }
+      pointerFire = true;
+    }
+
+    if (G.pointer.pendingFire) {
+      pointerFire = true;
+    }
+
+    // 毎フレーム全ての入力を合成して確定代入（未入力時は必ず false / 0 にリセット）
+    G.input.rot = kbRot !== 0 ? kbRot : pad.rot;
+    G.input.thrust = kbThrust || pad.thrust || pointerThrust;
+    G.input.fire = kbFire || pad.fire || pointerFire;
   }
 
   /* ================= メインループ ================= */
   function frame(t) {
     var dt = Math.min(0.05, Math.max(0.0001, (t - G.last) / 1000 || 0.016));
     G.last = t;
-    pollGamepad(dt);
+    updateInputs(dt);
     if (G.state === 'play') updatePlay(dt);
     else if (G.state !== 'pause' && G.state !== 'craft') {
       // タイトル/オーバー画面のみ背景を動かす (アトラクト)。pause/craft は完全停止
@@ -506,31 +568,6 @@
 
     /* --- 自機 --- */
     if (!G.shipDead) {
-      if (G.pointer.active) {
-        var pdx = G.pointer.worldX - shipPos.x;
-        var pdz = G.pointer.worldZ - shipPos.z;
-        var pdist = Math.hypot(pdx, pdz);
-        if (pdist > 1.2) {
-          var pTargetAngle = Math.atan2(-pdx, -pdz);
-          var pDiff = (pTargetAngle - G.ship.heading) % (Math.PI * 2);
-          if (pDiff > Math.PI) pDiff -= Math.PI * 2;
-          if (pDiff < -Math.PI) pDiff += Math.PI * 2;
-          var pTurnSpeed = C.ship.turnBase * st.turnMul;
-          var pMaxStep = pTurnSpeed * dt;
-          if (Math.abs(pDiff) <= pMaxStep) {
-            G.ship.heading = pTargetAngle;
-          } else {
-            G.ship.heading += Math.sign(pDiff) * pMaxStep;
-          }
-          G.ship.group.rotation.y = G.ship.heading;
-
-          if (pdist > 3.2 && Math.abs(pDiff) < 1.4) {
-            G.input.thrust = true;
-          }
-        }
-        G.input.fire = true;
-      }
-
       G.ship.update(dt, G.input, st, G.time);
       if (wrapPos(shipPos, 1.4)) G.fx.ring(shipPos, C.colors.bound, 3, 15, 0.4);
       if (G.invuln > 0) {
