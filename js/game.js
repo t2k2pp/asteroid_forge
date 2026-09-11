@@ -85,9 +85,9 @@
     var aspect = w / h;
     G.camera.aspect = aspect;
 
-    // 画面が縦長 (aspect < 1.18) の場合、視野角の狭まりに合わせて注視点からカメラ距離を自動調整
-    // 魚眼歪みを起こさずにアリーナ全体 (132x132) が自然に画面内に収まる
-    var baseAspect = 1.18;
+    // 画面が縦長 (aspect < 1.42) の場合、視野角の狭まりに合わせて注視点からカメラ距離を自動調整
+    // 手前角を含めたアリーナ全境界 (132x132) が自然に画面内に収まる
+    var baseAspect = 1.42;
     var zoomScale = Math.max(1.0, baseAspect / aspect);
 
     var cp = C.camera.pos;
@@ -826,6 +826,7 @@
     if (!p && G.pickups.length < C.pickup.cap) { p = new AF.Pickup(G.scene, kind); G.pickups.push(p); }
     if (!p) p = G.pickups[0];   // 極端にプールが埋まった場合のみ先頭再利用
     p.reset(x, z, amount);
+    return p;
   }
 
   function collectPickup(p) {

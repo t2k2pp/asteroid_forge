@@ -246,14 +246,14 @@ ok(playResumed, 'マウス: クラフト外側クリックでクラフトが閉�
 
 /* --- 10. 資源 (Pickup) のスクリーンラップ (境界ワープ) 検証 --- */
 await page.evaluate(() => {
-  AF.Game.dropResource(AF.CFG.arena.halfW - 0.5, 0, 'fe', 10);
-  var p = AF.Game._G.pickups.find(x => x.active && x.kind === 'fe');
+  var p = AF.Game.dropResource(AF.CFG.arena.halfW - 0.5, 0, 'fe', 10);
+  window._testPickup = p;
   p.velX = 35; // 右端境界の外側へ向けて飛ばす
   p.velZ = 0;
 });
 await sleep(200);
 const wrapCheck = await page.evaluate(() => {
-  var p = AF.Game._G.pickups.find(x => x.active && x.kind === 'fe');
+  var p = window._testPickup;
   return {
     active: p ? p.active : false,
     x: p ? p.mesh.position.x : 0,
@@ -263,7 +263,39 @@ const wrapCheck = await page.evaluate(() => {
 ok(wrapCheck.active && wrapCheck.x < 0, '資源: 右端境界を超えた資源が反対側 (左端) からワープ出現する (x=' + wrapCheck.x.toFixed(1) + ')');
 ok(Math.abs(wrapCheck.x) <= wrapCheck.halfW + 1.0, '資源: マップ外へ脱出せずアリーナ内に安全に保持される');
 
-/* --- 11. コンソールエラーゼロ --- */
+/* --- 11. スマホ縦長画面 (390x844) でのレスポンシブカメラ全境界収容検証 --- */
+await page.setViewportSize({ width: 390, height: 844 });
+await sleep(300);
+const mobileFrustum = await page.evaluate(() => {
+  const cam = AF.Game._G.camera;
+  const halfW = AF.CFG.arena.halfW, halfD = AF.CFG.arena.halfD;
+  const corners = [
+    new THREE.Vector3(halfW, 1, halfD),
+    new THREE.Vector3(-halfW, 1, halfD),
+    new THREE.Vector3(halfW, 1, -halfD),
+    new THREE.Vector3(-halfW, 1, -halfD),
+  ];
+  let minX = 1, maxX = -1, minY = 1, maxY = -1;
+  for (const p of corners) {
+    const v = p.clone().project(cam);
+    minX = Math.min(minX, v.x);
+    maxX = Math.max(maxX, v.x);
+    minY = Math.min(minY, v.y);
+    maxY = Math.max(maxY, v.y);
+  }
+  return {
+    aspect: (window.innerWidth / window.innerHeight).toFixed(2),
+    minX, maxX, minY, maxY,
+    allInside: Math.abs(minX) <= 0.95 && Math.abs(maxX) <= 0.95 && Math.abs(minY) <= 0.95 && Math.abs(maxY) <= 0.95
+  };
+});
+ok(mobileFrustum.allInside, 'スマホ縦画面 (aspect=' + mobileFrustum.aspect + '): アリーナ全境界が画面内に収まる (NDC X: [' + mobileFrustum.minX.toFixed(2) + ', ' + mobileFrustum.maxX.toFixed(2) + '])');
+
+// PC解像度に戻す
+await page.setViewportSize({ width: 1280, height: 720 });
+await sleep(200);
+
+/* --- 12. コンソールエラーゼロ --- */
 await sleep(500);
 const realErrors = errors.filter(e => !/favicon|Autoplay|AudioContext/i.test(e));
 ok(realErrors.length === 0, 'コンソールエラー / 未捕捉例外 ゼロ' + (realErrors.length ? ': ' + realErrors.join(' | ') : ''));

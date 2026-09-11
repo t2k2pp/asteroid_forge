@@ -119,7 +119,7 @@
   - `js/game.js` の `updateCamera()` 関数を実装し、画面縦横比 `aspect < 1.18` に応じて注視点からカメラ距離を自動スケールバック (`scale = max(1.0, 1.18 / aspect)`)
   - `init()` および `onResize()` で `updateCamera()` を呼び出し、カメラシェイクとの連動（`G.camBase`）も保証
   - コミット作成およびリモートリポジトリ（origin/main）へのPush
-- [ ] 3. ブラウザ実機検証 (Playwright) でのスマホ縦長画面表示テスト追加・検証
+- [x] 3. ブラウザ実機検証 (Playwright) でのスマホ縦長画面表示テスト追加・検証
   - `tests/browser-verify.mjs` に、モバイル縦長画面（390x844）でアリーナ全境界が画面内（NDC [-0.95, 0.95]）に確実に収まっていることのE2Eテストを追加・検証
   - 全テストの実行と合格確認
   - コミット作成およびリモートリポジトリ（origin/main）へのPush
