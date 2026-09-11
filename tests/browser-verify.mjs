@@ -43,7 +43,7 @@ ok(state === 'title', '起動してタイトル状態になる (' + state + ')')
 const titleVisible = await page.isVisible('#scrTitle.show');
 ok(titleVisible, 'タイトルオーバーレイ表示 (継続出撃ボタン非表示=新規時)');
 const contHidden = await page.evaluate(() => document.getElementById('btnContinue').style.display === 'none');
-ok(contHidden, 'セーブなし時は「继续出撃」が非表示');
+ok(contHidden, 'セーブなし時は「継続出撃」が非表示');
 
 /* --- 2. Enter でゲーム開始 --- */
 await page.keyboard.press('Enter');
@@ -100,14 +100,14 @@ ok(saved && saved.stage >= before.stage + 1, 'リロード前にセーブ済み 
 await page.reload();
 await sleep(1200);
 const contShown = await page.evaluate(() => document.getElementById('btnContinue').style.display !== 'none');
-ok(contShown, 'リロード後タイトルに「继续出撃」表示');
+ok(contShown, 'リロード後タイトルに「継続出撃」表示');
 const metaText = await page.evaluate(() => document.getElementById('titleMeta').textContent);
 ok(/第\s*\d+\s*の帯/.test(metaText), 'メタに保存ステージ表示: ' + metaText.trim());
 await page.click('#btnContinue');
 await sleep(500);
 const resumed = await page.evaluate(() => ({ state: AF.Game.state(), stage: AF.Game._G.stage, wlv: AF.Game._G.upg.weapon }));
 ok(resumed.state === 'play' && resumed.stage === saved.stage && resumed.wlv === 2,
-  '继续出撃でステージ+' + '武器Lv を復元 (stage=' + resumed.stage + ', wlv=' + resumed.wlv + ')');
+  '継続出撃でステージ+' + '武器Lv を復元 (stage=' + resumed.stage + ', wlv=' + resumed.wlv + ')');
 
 /* --- 7. デス → ゲームオーバー → 再出撃で資源維持 --- */
 await page.evaluate(() => {
