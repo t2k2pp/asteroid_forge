@@ -410,21 +410,45 @@
 
   /* ---------- ワールド装飾 ----------------------------------------------- */
   function buildStars() {
-    var n = 1100, pos = new Float32Array(n * 3), colArr = new Float32Array(n * 3);
+    var n = 2200, pos = new Float32Array(n * 3), colArr = new Float32Array(n * 3);
     var c = new T.Color();
     for (var i = 0; i < n; i++) {
-      var r = rnd(240, 460), a = rnd(0, Math.PI * 2), b = Math.acos(rnd(-1, 1));
-      pos[i * 3] = r * Math.sin(b) * Math.cos(a);
-      pos[i * 3 + 1] = Math.abs(r * Math.cos(b)) * 0.8 - 40;
-      pos[i * 3 + 2] = r * Math.sin(b) * Math.sin(a);
+      // カメラの最大後退位置 (dist ≈ 400) より十分に遠い深宇宙 (r = 680〜980) に配置
+      var r = rnd(680, 980);
+      var x, y, z;
+      if (Math.random() < 0.75) {
+        // カメラの視界前方 (奥・上空 Z < 40, Y > -30) に高密度集中
+        var theta = (Math.random() - 0.5) * Math.PI * 1.4;
+        var phi = 0.15 + Math.random() * 1.35;
+        x = r * Math.sin(theta) * Math.sin(phi);
+        y = r * Math.cos(phi) - 20;
+        z = -r * Math.cos(theta) * Math.sin(phi);
+      } else {
+        // 全周囲スカイスフィア
+        var a = rnd(0, Math.PI * 2), b = Math.acos(rnd(-1, 1));
+        x = r * Math.sin(b) * Math.cos(a);
+        y = r * Math.cos(b);
+        z = r * Math.sin(b) * Math.sin(a);
+      }
+      pos[i * 3] = x; pos[i * 3 + 1] = y; pos[i * 3 + 2] = z;
+
       var t = Math.random();
-      c.setHex(t < 0.75 ? C.colors.star : (t < 0.9 ? 0xffd9a8 : 0xa8c9ff));
+      c.setHex(t < 0.65 ? C.colors.star : (t < 0.85 ? 0xffd9a8 : 0xa8c9ff));
       colArr[i * 3] = c.r; colArr[i * 3 + 1] = c.g; colArr[i * 3 + 2] = c.b;
     }
     var g = new T.BufferGeometry();
     g.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
     g.setAttribute('color', new T.Float32BufferAttribute(colArr, 3));
-    var m = new T.PointsMaterial({ size: 1.6, vertexColors: true, transparent: true, opacity: 0.9, depthWrite: false, fog: false });
+    var m = new T.PointsMaterial({
+      size: 9,
+      map: glowTexture(),
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.85,
+      blending: T.AdditiveBlending,
+      depthWrite: false,
+      fog: false
+    });
     return new T.Points(g, m);
   }
 
