@@ -755,7 +755,7 @@
       } else if (cap > 0 && G.shieldT < 0) {
         G.shieldT = C.shieldGrace;
       }
-      // 装甲自動修復 (ナノリペア)
+      // 装甲自動修復 (ナノリペア: 1メモリずつ回復)
       var maxHp = L.hullHp(G.upg.hull);
       var repairInt = L.repairInterval(G.upg.repair || 0);
       if (repairInt && G.hp < maxHp) {
@@ -767,7 +767,8 @@
           G.fx.burst(shipPos, 0x55ff99, 4, 8);
           SFX.play('heal');
         }
-      } else if (repairInt && G.repairT <= 0) {
+      } else if (repairInt) {
+        // HPが全快の時は常に満了値に保持 (被弾時に最初からタイマー開始)
         G.repairT = repairInt;
       }
     } else {
@@ -1003,19 +1004,31 @@
 
   /* ================= ダメージ/死 ================= */
   function healFull() {
-    G.hp = L.hullHp(G.upg.hull);
+    var maxHp = L.hullHp(G.upg.hull);
+    G.hp = maxHp;
     G.shield = L.shieldCap(G.upg.shield);
     G.shieldT = C.shieldGrace;
+    var repairInt = L.repairInterval(G.upg.repair || 0);
+    if (repairInt) G.repairT = repairInt;
   }
 
   function damageShip(d) {
     if (G.invuln > 0 || G.shipDead) return;
+    var prevHp = G.hp;
+    var maxHp = L.hullHp(G.upg.hull);
     var a = Math.min(G.shield, d);
     G.shield -= a;
     var rem = d - a;
     if (rem > 0) G.hp -= rem;
     G.shieldT = C.shieldGrace;
     G.invuln = 0.85;
+
+    // 全て回復していて被弾した場合は被弾後にタイマーを開始
+    var repairInt = L.repairInterval(G.upg.repair || 0);
+    if (repairInt && rem > 0 && prevHp >= maxHp) {
+      G.repairT = repairInt;
+    }
+
     SFX.play('hurt');
     shake(0.7);
     G.fx.burst(G.ship.group.position, C.colors.ship, 12, 20, 1.8);
