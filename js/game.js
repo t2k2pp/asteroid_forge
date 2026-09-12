@@ -56,6 +56,7 @@
       toTitle: function () { toTitle(); },
       craftToggle: function () { craftPanelOpen(); },
       closeCraft: function () { if (G.state === 'craft') { G.state = 'play'; UI.setScreen(null); } },
+      swapWeapon: function () { swapWeapon(); },
       togglePadLayout: function () { return togglePadLayout(); }
     });
 
@@ -592,8 +593,10 @@
         setPaused(false);
       }
     } else if (G.state === 'craft') {
-      if (justPressed(cancelIdx) || justPressed(9) || justPressed(craftIdx) || justPressed(8)) {
+      if (justPressed(cancelIdx) || justPressed(9) || justPressed(8)) {
         craftPanelOpen();
+      } else if (justPressed(craftIdx) || justPressed(altCraftIdx)) {
+        swapWeapon();
       } else {
         if (justPressed(12) || stickUpPressed) {
           G.craftCursor = (G.craftCursor - 1 + L.RECIPES.length) % L.RECIPES.length;

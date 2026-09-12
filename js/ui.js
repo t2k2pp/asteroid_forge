@@ -38,6 +38,11 @@
 
     // クラフト行はクリック委譲 (再描画に耐える)
     if (els.craftList) els.craftList.addEventListener('click', function (ev) {
+      var swapBtn = ev.target && ev.target.closest ? ev.target.closest('button[data-action="swap"]') : null;
+      if (swapBtn && !swapBtn.disabled) {
+        cbs.swapWeapon && cbs.swapWeapon();
+        return;
+      }
       var b = ev.target && ev.target.closest ? ev.target.closest('button[data-id]') : null;
       if (b && !b.disabled && b.dataset.id) cbs.craft && cbs.craft(b.dataset.id);
     });
@@ -129,15 +134,23 @@
     var html = '';
     L.RECIPES.forEach(function (r, idx) {
       var lv = s.upgrades[r.id] || 0;
-      var cur = r.effect(lv);
+      var cur = r.effect(lv, s.wpnMode);
       var maxed = lv >= r.max;
-      var next = maxed ? null : r.effect(lv + 1);
+      var next = maxed ? null : r.effect(lv + 1, s.wpnMode);
       var cost = maxed ? null : L.costFor(r.id, lv + 1);
       var afford = cost && L.canAfford(s.res, cost);
       var isCursor = idx === cIdx;
+
+      var swapBtn = '';
+      if (r.id === 'weapon' && lv >= 2) {
+        var targetLabel = s.wpnMode === 'laser' ? 'バルカン' : 'レーザー';
+        var canSwap = L.canAfford(s.res, L.SWAP_COST);
+        swapBtn = ' <button type="button" class="btnSwap' + (canSwap ? '' : ' poor') + '" data-action="swap"' + (canSwap ? '' : ' disabled') + ' title="資源(Fe 15 / Cr 5)で兵装換装 [Xキー]">換装 ⇆ ' + targetLabel + ' (Fe 15 / Cr 5)</button>';
+      }
+
       html += '<div class="craftRow' + (maxed ? ' maxed' : (afford ? '' : ' poor')) + (isCursor ? ' cursor' : '') + '">'
         + '<div class="crIdx">[' + (idx + 1) + ']</div>'
-        + '<div class="crMain"><div class="crName">' + r.name + ' <span class="crLv">Lv' + lv + '/' + r.max + '</span></div>'
+        + '<div class="crMain"><div class="crName">' + r.name + ' <span class="crLv">Lv' + lv + '/' + r.max + '</span>' + swapBtn + '</div>'
         + '<div class="crEff">' + cur + (maxed ? '' : ' → <b>' + next + '</b>') + '</div></div>'
         + '<div class="crBuy">'
         + (maxed
