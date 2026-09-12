@@ -104,7 +104,7 @@
   function shieldRegen(l) { return l <= 0 ? 0 : 0.5 + 0.22 * l; }
   function orbitShieldCount(l) { return clampi(l, 0, 3); }
   function hullHp(l) { return C.ship.hpBase + (clampi(l, 1, 4) - 1); }
-  function repairInterval(l) { return l <= 0 ? null : (l === 1 ? 8 : (l === 2 ? 5 : 3)); }
+  function repairInterval(l) { return l <= 0 ? null : (l === 1 ? 35 : (l === 2 ? 24 : 16)); }
   function optionCount(l) { return clampi(l, 0, 3); }
   function droneInterval(l) { return l <= 0 ? null : Math.max(34 - 8 * clampi(l, 0, 3), 10); }
   function droneYield(l) { return l <= 0 ? { fe: 0, cr: 0 } : { fe: 5 + 3 * l, cr: l >= 3 ? 2 : 0 }; }

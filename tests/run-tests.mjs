@@ -162,9 +162,9 @@ test('newCraft: orbitShield / repair / option の計算と定数', () => {
   assert.equal(L.orbitShieldCount(5), 3);
 
   assert.equal(L.repairInterval(0), null);
-  assert.equal(L.repairInterval(1), 8);
-  assert.equal(L.repairInterval(2), 5);
-  assert.equal(L.repairInterval(3), 3);
+  assert.equal(L.repairInterval(1), 35);
+  assert.equal(L.repairInterval(2), 24);
+  assert.equal(L.repairInterval(3), 16);
 
   assert.equal(L.optionCount(0), 0);
   assert.equal(L.optionCount(1), 1);

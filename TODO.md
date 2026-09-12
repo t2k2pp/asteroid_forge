@@ -222,7 +222,7 @@
   - `DESIGN.md` の自動修復仕様を更新（Lv1: 35秒 / Lv2: 24秒 / Lv3: 16秒で1メモリ回復、HP全快時被弾でタイマー開始）
   - `TODO.md` に実装ToDoを策定
   - コミット作成およびリモートリポジトリ（origin/main）へのPush
-- [ ] 2. 純ロジック (`js/logic.js`) & 単体テスト (`tests/run-tests.mjs`) の更新
+- [x] 2. 純ロジック (`js/logic.js`) & 単体テスト (`tests/run-tests.mjs`) の更新
   - `repairInterval` を `[null, 35, 24, 16]` に改訂
   - 単体テストの期待値を更新して実行・検証 (19 passed)
   - コミット作成およびリモートリポジトリ（origin/main）へのPush
