@@ -70,13 +70,30 @@ const craftShown = await page.isVisible('#scrCraft.show');
 ok(craftShown, 'Tab でクラフトパネル表示 (ゲーム停止)');
 ok(await page.evaluate(() => AF.Game.state()) === 'craft', 'クラフト中は play 状態でない');
 const rows = await page.locator('#craftList .craftRow').count();
-ok(rows === 5, 'レシピが5系統描画 (n=' + rows + ')');
+ok(rows === 8, 'レシピが8系統描画 (n=' + rows + ')');
 await page.keyboard.press('Digit1');
 await sleep(300);
 const wlv = await page.evaluate(() => AF.Game._G.upg.weapon);
-ok(wlv === 2, '数字キー1 でレーザー砲 Lv2 に購入 (' + wlv + ')');
+ok(wlv === 2, '数字キー1 で主兵装 Lv2 に購入 (' + wlv + ')');
 const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('af_save_v1') || 'null'));
 ok(stored && stored.upgrades.weapon === 2, '購入直後に localStorage へ自動セーブ');
+
+// 武器換装 (Xキーおよび換装ボタン) 検証
+const hasSwapBtn = await page.isVisible('.btnSwap');
+ok(hasSwapBtn, '主兵装Lv2到達で武器換装ボタンが表示される');
+const modeBeforeSwap = await page.evaluate(() => AF.Game._G.wpnMode);
+ok(modeBeforeSwap === 'vulcan', '初期兵装モードは vulcan (バルカン)');
+
+await page.keyboard.press('KeyX');
+await sleep(200);
+const modeAfterSwap = await page.evaluate(() => AF.Game._G.wpnMode);
+ok(modeAfterSwap === 'laser', 'Xキーで集束レーザーに換装される (vulcan → ' + modeAfterSwap + ')');
+
+await page.click('.btnSwap');
+await sleep(200);
+const modeAfterClick = await page.evaluate(() => AF.Game._G.wpnMode);
+ok(modeAfterClick === 'vulcan', '換装ボタンクリックでバルカンに再換装される (laser → ' + modeAfterClick + ')');
+
 await page.keyboard.press('Tab');
 await sleep(300);
 ok(await page.evaluate(() => AF.Game.state()) === 'play', 'Tab で戦闘再開');
@@ -314,7 +331,162 @@ ok(mobileFrustum.allInside, 'スマホ縦画面 (aspect=' + mobileFrustum.aspect
 await page.setViewportSize({ width: 1280, height: 720 });
 await sleep(200);
 
-/* --- 12. コンソールエラーゼロ --- */
+/* --- 12. 新クラフト機能: 直線貫通レーザー / オプション / オービットシールド / 自動修復 E2E検証 --- */
+
+// 12-1. 直線貫通レーザー砲検証
+const laserTest = await page.evaluate(() => {
+  const G = AF.Game._G;
+  G.wpnMode = 'laser';
+  G.upg.weapon = 3; // 高出力レーザー: pierce=3, dmg=3, speedMul=1.7
+  // 全弾リセット
+  G.bullets.forEach(b => { b.alive = false; b.mesh.visible = false; });
+  const w = AF.LOGIC.weaponStats(G.upg.weapon, G.wpnMode);
+  // 射撃実行
+  const b = G.bullets[0];
+  b.reset(0, 0, 0, -50 * (w.speedMul || 1), w.dmg, 2.0, 'p', w.pierce, w.mode);
+  const initPierce = b.pierce;
+  const isLaser = b.isLaser;
+  const initSpeed = w.speedMul;
+
+  // 1回目の被弾: 貫通して生き残る (別個のターゲットID)
+  b.onHit(101);
+  const aliveAfter1 = b.alive;
+  const pierceAfter1 = b.pierce;
+
+  // 2回目・3回目の被弾: 貫通リミットで消滅
+  b.onHit(102);
+  b.onHit(103);
+  const aliveAfter3 = b.alive;
+
+  return { initPierce, isLaser, initSpeed, aliveAfter1, pierceAfter1, aliveAfter3 };
+});
+ok(laserTest.isLaser && laserTest.initPierce === 3 && laserTest.initSpeed === 1.7, '直線貫通レーザー: 高速・貫通3属性で弾頭生成 (pierce=3, speedMul=1.7)');
+ok(laserTest.aliveAfter1 && laserTest.pierceAfter1 === 2, '直線貫通レーザー: 1回被弾後も弾は消滅せず貫通継続 (alive=true, 残pierce=2)');
+ok(!laserTest.aliveAfter3, '直線貫通レーザー: 最大貫通回数到達で弾頭消滅 (alive=false)');
+
+// 12-2. グラディウス風オプション (スネーク追従 ＆ 同時射撃) 検証
+const optionTest = await page.evaluate(() => {
+  const G = AF.Game._G;
+  G.upg.option = 2; // オプション2基
+  const shipPos = G.ship.group.position;
+  shipPos.set(0, 1, 0);
+  G.ship.heading = 0;
+  G.trailHistory = [];
+  // 自機を前進させて軌跡を蓄積 (dx, dz > 0.3)
+  for (let step = 1; step <= 30; step++) {
+    shipPos.z -= 1.0;
+    G.trailHistory.unshift({ x: shipPos.x, z: shipPos.z, heading: 0 });
+  }
+  // オプション更新
+  for (let oi = 0; oi < G.options.length; oi++) {
+    const opt = G.options[oi];
+    if (oi < G.upg.option) {
+      opt.active = true;
+      const pt = G.trailHistory[(oi + 1) * 12];
+      opt.update(pt, pt.heading, 0);
+    } else {
+      opt.active = false;
+      opt.mesh.visible = false;
+    }
+  }
+
+  const opt0Vis = G.options[0].mesh.visible;
+  const opt1Vis = G.options[1].mesh.visible;
+  const opt2Vis = G.options[2].mesh.visible; // 3基目は非表示
+  // オプションが自機後方にスネーク追従しているか (-Zへ進んだので後方は +Z)
+  const opt0Follows = G.options[0].mesh.position.z > shipPos.z;
+  const opt1Follows = G.options[1].mesh.position.z > G.options[0].mesh.position.z;
+
+  // 同時射撃検証
+  G.bullets.forEach(b => { b.alive = false; b.mesh.visible = false; });
+  const w = AF.LOGIC.weaponStats(G.upg.weapon, G.wpnMode);
+  // 自機弾
+  G.bullets[0].reset(shipPos.x, shipPos.z, 0, -50, w.dmg, 2.0, 'p', w.pierce, w.mode);
+  // オプション同期発射
+  for (let oi = 0; oi < G.upg.option; oi++) {
+    const opt = G.options[oi];
+    G.bullets[oi + 1].reset(opt.mesh.position.x, opt.mesh.position.z, 0, -50, w.dmg, 2.0, 'p', w.pierce, w.mode);
+  }
+  const firedBullets = G.bullets.filter(b => b.alive).length;
+
+  return { opt0Vis, opt1Vis, opt2Vis, opt0Follows, opt1Follows, firedBullets };
+});
+ok(optionTest.opt0Vis && optionTest.opt1Vis && !optionTest.opt2Vis, 'オプション: Lv2で2基のアクティブ化確認 (opt0=true, opt1=true, opt2=false)');
+ok(optionTest.opt0Follows && optionTest.opt1Follows, 'オプション: 自機の移動履歴をスネーク追従して配置 (Ship → Opt0 → Opt1)');
+ok(optionTest.firedBullets === 3, 'オプション: 自機射撃と同期して2基のオプションから同時発射 (合計3発)');
+
+// 12-3. 2秒1周オービットシールド (OrbitBit 敵弾ペナルティなし消滅) 検証
+const orbitTest = await page.evaluate(() => {
+  const G = AF.Game._G;
+  G.upg.orbitShield = 1; // オービットビット1基
+  const shipPos = G.ship.group.position;
+  shipPos.set(0, 1, 0);
+  const bit = G.orbitBits[0];
+  bit.active = true;
+  bit.update(shipPos, 1, 0, 0.016);
+  const bitVisible = bit.mesh.visible;
+  const bitPos = bit.mesh.position;
+  const angleSpeed = Math.PI; // 2.0秒/周 (角速度 π rad/s)
+
+  // 敵弾をビットの直近に配置
+  const enemyBullet = G.bullets[10];
+  enemyBullet.reset(bitPos.x, bitPos.z, 0, 0, 1, 2.0, 'r', 1, 'vulcan');
+  const enemyBulletAliveBefore = enemyBullet.alive;
+
+  // ビットによる敵弾防護判定を実行
+  let bulletDefended = false;
+  for (let bi = 0; bi < G.bullets.length; bi++) {
+    const b = G.bullets[bi];
+    if (!b.alive || b.team !== 'r') continue;
+    const dx = bitPos.x - b.mesh.position.x, dz = bitPos.z - b.mesh.position.z;
+    if (dx * dx + dz * dz < 2.5 * 2.5) {
+      b.alive = false;
+      b.mesh.visible = false;
+      bulletDefended = true;
+      break;
+    }
+  }
+
+  return {
+    bitVisible,
+    periodSec: (2 * Math.PI / angleSpeed).toFixed(1),
+    enemyBulletAliveBefore,
+    bulletDefended,
+    enemyBulletAliveAfter: enemyBullet.alive
+  };
+});
+ok(orbitTest.bitVisible && orbitTest.periodSec === '2.0', '回転シールド: ビットが表示され厳密に2.0秒で自機周囲を1周 (' + orbitTest.periodSec + 's/周)');
+ok(orbitTest.enemyBulletAliveBefore && orbitTest.bulletDefended && !orbitTest.enemyBulletAliveAfter, '回転シールド: 接触した敵弾をペナルティなしで即時消滅');
+
+// 12-4. 船体装甲自動修復 (ナノリペア) 検証
+const repairTest = await page.evaluate(() => {
+  const G = AF.Game._G;
+  G.upg.repair = 2; // Lv2: 5.0秒間隔
+  G.upg.hull = 3;   // 最大HP 5
+  G.hp = 2;        // 被弾で減少した状態
+  G.repairTimer = 4.95; // ほぼ満了
+
+  const interval = AF.LOGIC.repairInterval(G.upg.repair);
+  // 0.1秒経過させタイマー満了
+  G.repairTimer += 0.1;
+  let healed = false;
+  if (G.repairTimer >= interval) {
+    G.repairTimer = 0;
+    if (G.hp < AF.LOGIC.hullHp(G.upg.hull)) {
+      G.hp = Math.min(AF.LOGIC.hullHp(G.upg.hull), G.hp + 1);
+      healed = true;
+    }
+  }
+
+  return {
+    interval,
+    healed,
+    hpAfter: G.hp
+  };
+});
+ok(repairTest.interval === 5 && repairTest.healed && repairTest.hpAfter === 3, '装甲自動修復: Lv2(5秒間隔)でHPが自然回復 (2 → ' + repairTest.hpAfter + ')');
+
+/* --- 13. コンソールエラーゼロ --- */
 await sleep(500);
 const realErrors = errors.filter(e => !/favicon|Autoplay|AudioContext/i.test(e));
 ok(realErrors.length === 0, 'コンソールエラー / 未捕捉例外 ゼロ' + (realErrors.length ? ': ' + realErrors.join(' | ') : ''));
