@@ -530,7 +530,48 @@
     return m;
   }
 
+  /* ---------- OptionDrone (グラディウス風追従ビット) ------------------------- */
+  var _optionGeo = null, _optionWire = null;
+  function optionGeos() {
+    if (!_optionGeo) {
+      _optionGeo = new T.OctahedronGeometry(0.85, 0);
+      _optionWire = new T.WireframeGeometry(_optionGeo);
+    }
+    return { solid: _optionGeo, wire: _optionWire };
+  }
+  function OptionDrone(scene, index) {
+    this.index = index || 0;
+    this.active = false;
+    this.heading = 0;
+    var geos = optionGeos();
+    this.mesh = new T.Group();
+    var fill = new T.Mesh(geos.solid, new T.MeshBasicMaterial({ color: 0xff8800, transparent: true, opacity: 0.7 }));
+    var wire = new T.LineSegments(geos.wire, new T.LineBasicMaterial({ color: 0xffbb22, transparent: true, opacity: 0.95 }));
+    var gs = new T.Sprite(new T.SpriteMaterial({
+      map: glowTexture(), color: 0xff7700, transparent: true, opacity: 0.85,
+      blending: T.AdditiveBlending, depthWrite: false
+    }));
+    gs.scale.setScalar(5.5);
+    this.mesh.add(fill); this.mesh.add(wire); this.mesh.add(gs);
+    this.mesh.visible = false;
+    scene.add(this.mesh);
+  }
+  OptionDrone.prototype.update = function (pos, heading, tSec) {
+    if (!this.active) {
+      this.mesh.visible = false;
+      return;
+    }
+    this.mesh.position.set(pos.x, 0.95, pos.z);
+    this.heading = heading;
+    this.mesh.rotation.y = heading;
+    this.mesh.rotation.x = Math.sin(tSec * 4 + this.index) * 0.3;
+    var pulse = 0.9 + 0.18 * Math.sin(tSec * 8 + this.index * 2);
+    this.mesh.scale.setScalar(pulse);
+    this.mesh.visible = true;
+  };
+
   AF.Ship = Ship; AF.Rock = Rock; AF.Bullet = Bullet; AF.Pickup = Pickup; AF.Raider = Raider;
+  AF.OptionDrone = OptionDrone;
   AF.FXManager = FXManager;
   AF.glowTexture = glowTexture;
   AF.world = { buildStars: buildStars, buildFloor: buildFloor, buildNebula: buildNebula };

@@ -13,7 +13,7 @@
     hp: 2, shield: 0, shieldT: 0, shipDead: false, respawnT: -1, invuln: 0,
     fireCd: 0, chain: 0, chainT: 0, clearT: -1, droneT: 0, shakeT: 0,
     raidersQueue: 0, raiderT: 0, plan: null,
-    rocks: [], bullets: [], pickups: [], raiders: [],
+    rocks: [], bullets: [], pickups: [], raiders: [], options: [], trailHistory: [],
     input: { rot: 0, thrust: false, fire: false }, keys: {},
     padLayout: 'xbox', padConnected: false, padPrevButtons: {}, padPrevAxes: {}, craftCursor: 0,
     pointer: { active: false, screenX: 0, screenY: 0, worldX: 0, worldZ: 0, inside: true, justDown: false },
@@ -44,6 +44,7 @@
     G.ship = new AF.Ship(G.scene);
     G.fx = new AF.FXManager(G.scene);
     for (var i = 0; i < 70; i++) G.bullets.push(new AF.Bullet(G.scene));
+    for (var oi = 0; oi < 3; oi++) G.options.push(new AF.OptionDrone(G.scene, oi));
 
     UI.init({
       continueRun: function () { start(false); },
@@ -128,6 +129,86 @@
   function isInsideArena(worldPos) {
     if (!worldPos) return false;
     return Math.abs(worldPos.x) <= C.arena.halfW && Math.abs(worldPos.z) <= C.arena.halfD;
+  }
+
+  /* ================= オプション (グラディウス風追従支援機) ================= */
+  function updateOptionDrones(dt, tSec) {
+    if (!G.ship || !G.ship.group || !G.options) return;
+    var shipPos = G.ship.group.position;
+    var count = L.optionCount(G.upg.option || 0);
+
+    if (G.shipDead || count <= 0) {
+      for (var k = 0; k < G.options.length; k++) {
+        G.options[k].active = false;
+        G.options[k].mesh.visible = false;
+      }
+      return;
+    }
+
+    if (!G.trailHistory || G.trailHistory.length === 0) {
+      G.trailHistory = [];
+      for (var h = 0; h < 60; h++) {
+        G.trailHistory.push({ x: shipPos.x, z: shipPos.z, heading: G.ship.heading });
+      }
+    }
+
+    var lastPt = G.trailHistory[0];
+    var dx = shipPos.x - lastPt.x, dz = shipPos.z - lastPt.z;
+    var dMoved = Math.sqrt(dx * dx + dz * dz);
+    if (dMoved > 0.3) {
+      if (dMoved > 20) {
+        var shiftX = shipPos.x - lastPt.x;
+        var shiftZ = shipPos.z - lastPt.z;
+        for (var m = 0; m < G.trailHistory.length; m++) {
+          G.trailHistory[m].x += shiftX;
+          G.trailHistory[m].z += shiftZ;
+          wrapPos(G.trailHistory[m], 0);
+        }
+      }
+      G.trailHistory.unshift({ x: shipPos.x, z: shipPos.z, heading: G.ship.heading });
+      if (G.trailHistory.length > 60) G.trailHistory.pop();
+    } else {
+      lastPt.heading = G.ship.heading;
+    }
+
+    var spacing = 12;
+    for (var i = 0; i < G.options.length; i++) {
+      var opt = G.options[i];
+      if (i < count) {
+        opt.active = true;
+        var idx = Math.min((i + 1) * spacing, G.trailHistory.length - 1);
+        var pt = G.trailHistory[idx] || G.trailHistory[G.trailHistory.length - 1];
+        opt.update(pt, pt.heading, tSec);
+      } else {
+        opt.active = false;
+        opt.mesh.visible = false;
+      }
+    }
+  }
+
+  function fireOptionDrones(w) {
+    if (!G.options || G.upg.option <= 0) return;
+    var count = L.optionCount(G.upg.option || 0);
+    for (var o = 0; o < count; o++) {
+      var opt = G.options[o];
+      if (!opt.active) continue;
+      var optPos = opt.mesh.position;
+      var ang = opt.heading;
+      for (var i = 0; i < w.shots; i++) {
+        var bl = acquireBullet();
+        if (!bl) break;
+        var off = w.shots > 1 ? (i - (w.shots - 1) / 2) * w.spread * 2.4 : 0;
+        var finalAng = ang + off;
+        var dx = -Math.sin(finalAng), dz = -Math.cos(finalAng);
+        var spd = C.bullet.speed * (1 + 0.06 * (G.upg.weapon - 1)) * (w.speedMul || 1.0);
+        bl.reset(
+          optPos.x + dx * 2.2, optPos.z + dz * 2.2,
+          dx * spd + G.ship.vel.x * 0.35,
+          dz * spd + G.ship.vel.z * 0.35,
+          w.dmg, C.bullet.life, 'p', w.pierce, w.mode
+        );
+      }
+    }
   }
 
   function tryFireShip() {
@@ -237,6 +318,8 @@
     G.pickups.forEach(function (p) { p.active = false; p.mesh.visible = false; });
     G.raiders.forEach(function (r) { r.active = false; r.mesh.visible = false; });
     G.raiders.length = 0;
+    if (G.options) G.options.forEach(function (opt) { opt.active = false; opt.mesh.visible = false; });
+    G.trailHistory = [];
   }
 
   function spawnAmbient() {
@@ -598,6 +681,7 @@
     if (!G.shipDead) {
       G.ship.update(dt, G.input, st, G.time);
       if (wrapPos(shipPos, 1.4)) G.fx.ring(shipPos, C.colors.bound, 3, 15, 0.4);
+      updateOptionDrones(dt, G.time);
       if (G.invuln > 0) {
         G.invuln -= dt;
         G.ship.group.visible = (Math.floor(G.time * 10) % 2 === 0);
