@@ -150,6 +150,28 @@
   - `TODO.md` の完了状態更新
   - コミット作成およびリモートリポジトリ（origin/main）へのPush
 
+---
+
+# ゲームパッド攻撃時スラスター誤動作防止・推進/射撃完全独立化 実装 ToDo
+
+- [x] 1. 設計書更新とToDo作成
+  - `DESIGN.md` のゲームパッド操作マッピング表を改訂し、推進と射撃の完全独立仕様を明記
+  - `TODO.md` に実装ToDoを策定
+  - コミット作成およびリモートリポジトリ（origin/main）へのPush
+- [ ] 2. ゲームパッド推進・射撃入力判定の完全独立化実装
+  - `js/game.js` の `pollGamepad` を修正し、`padThrust` から `isDown(7)`(RT) を完全に除外
+  - Xbox/Switch両配列で推進（LT/LB/十字上/スティック上/下ボタン0）と射撃（RT/RB/左ボタン2/右ボタン1）の条件を厳密分離
+  - 単体テスト（`node tests/run-tests.mjs`）の実行検証
+  - コミット作成およびリモートリポジトリ（origin/main）へのPush
+- [ ] 3. ブラウザ実機検証 (Playwright) でのRT射撃時スラスター不稼働テスト追加・検証
+  - `tests/browser-verify.mjs` にゲームパッドRT射撃時に `G.input.thrust === false` かつ `G.ship.thruster.visible === false` であることのアサーションを追加
+  - Playwright による実機ブラウザテスト実行・全件合格確認（エラー0）
+  - コミット作成およびリモートリポジトリ（origin/main）へのPush
+- [ ] 4. ToDo完了記録の更新と最終リモート同期
+  - `TODO.md` の完了状態更新
+  - コミット作成およびリモートリポジトリ（origin/main）へのPush
+
+
 
 
 
