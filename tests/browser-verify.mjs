@@ -461,30 +461,40 @@ ok(orbitTest.enemyBulletAliveBefore && orbitTest.bulletDefended && !orbitTest.en
 // 12-4. 船体装甲自動修復 (ナノリペア) 検証
 const repairTest = await page.evaluate(() => {
   const G = AF.Game._G;
-  G.upg.repair = 2; // Lv2: 5.0秒間隔
+  G.upg.repair = 2; // Lv2: 24.0秒間隔
   G.upg.hull = 3;   // 最大HP 5
-  G.hp = 2;        // 被弾で減少した状態
-  G.repairTimer = 4.95; // ほぼ満了
-
+  G.hp = 5;        // 全快状態
   const interval = AF.LOGIC.repairInterval(G.upg.repair);
-  // 0.1秒経過させタイマー満了
-  G.repairTimer += 0.1;
+
+  // 被弾によりHPが減少した際、全快から被弾した場合はタイマーが interval (24.0秒) から開始される
+  const prevHp = G.hp;
+  G.hp -= 2; // 残り 3
+  if (prevHp >= AF.LOGIC.hullHp(G.upg.hull)) {
+    G.repairT = interval;
+  }
+  const timerStartedAt = G.repairT;
+
+  // タイマー満了直前まで進める
+  G.repairT = 0.05;
+  // 0.1秒経過させてタイマー満了
+  G.repairT -= 0.1;
   let healed = false;
-  if (G.repairTimer >= interval) {
-    G.repairTimer = 0;
-    if (G.hp < AF.LOGIC.hullHp(G.upg.hull)) {
-      G.hp = Math.min(AF.LOGIC.hullHp(G.upg.hull), G.hp + 1);
-      healed = true;
-    }
+  if (G.repairT <= 0) {
+    G.hp = Math.min(AF.LOGIC.hullHp(G.upg.hull), G.hp + 1);
+    G.repairT = interval;
+    healed = true;
   }
 
   return {
     interval,
+    timerStartedAt,
     healed,
-    hpAfter: G.hp
+    hpAfter: G.hp,
+    timerResetTo: G.repairT
   };
 });
-ok(repairTest.interval === 5 && repairTest.healed && repairTest.hpAfter === 3, '装甲自動修復: Lv2(5秒間隔)でHPが自然回復 (2 → ' + repairTest.hpAfter + ')');
+ok(repairTest.interval === 24 && repairTest.timerStartedAt === 24, '装甲自動修復: Lv2(24秒間隔) 全快時被弾で24秒タイマーが正確に開始');
+ok(repairTest.healed && repairTest.hpAfter === 4 && repairTest.timerResetTo === 24, '装甲自動修復: 満了時に1メモリ回復し次回復へ24秒タイマー再セット (3 → 4)');
 
 /* --- 13. コンソールエラーゼロ --- */
 await sleep(500);
