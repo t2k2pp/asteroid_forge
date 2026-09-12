@@ -163,10 +163,29 @@ ok(hRight < h0, 'ゲームパッド: 左スティック右で時計回りに旋�
 
 const bulletsBefore = await page.evaluate(() => AF.Game._G.bullets.filter(b => b.alive).length);
 await page.evaluate(() => { window._mockGamepad.buttons[7] = { pressed: true, value: 1 }; });
-await sleep(150);
+await sleep(50);
+const rtFiringInput = await page.evaluate(() => ({
+  fire: AF.Game._G.input.fire,
+  thrust: AF.Game._G.input.thrust,
+  thrusterVisible: AF.Game._G.ship && AF.Game._G.ship.thruster && AF.Game._G.ship.thruster.visible
+}));
+ok(rtFiringInput.fire && !rtFiringInput.thrust && !rtFiringInput.thrusterVisible, 'ゲームパッド: RT射撃中もスラスターは停止したまま (fire=true, thrust=false, visible=false)');
+
+await sleep(100);
 await page.evaluate(() => { window._mockGamepad.buttons[7] = { pressed: false, value: 0 }; });
 const bulletsAfter = await page.evaluate(() => AF.Game._G.bullets.filter(b => b.alive).length);
 ok(bulletsAfter > bulletsBefore, 'ゲームパッド: RT で弾が発射される');
+
+// 推進 (LT: ボタン6) 単独検証
+await page.evaluate(() => { window._mockGamepad.buttons[6] = { pressed: true, value: 1 }; });
+await sleep(50);
+const ltThrustInput = await page.evaluate(() => ({
+  fire: AF.Game._G.input.fire,
+  thrust: AF.Game._G.input.thrust
+}));
+ok(!ltThrustInput.fire && ltThrustInput.thrust, 'ゲームパッド: LT推進中は射撃せず推進のみ稼働 (fire=false, thrust=true)');
+await page.evaluate(() => { window._mockGamepad.buttons[6] = { pressed: false, value: 0 }; });
+await sleep(50);
 
 await page.evaluate(() => { window._mockGamepad.buttons[9] = { pressed: true, value: 1 }; });
 await sleep(50);
