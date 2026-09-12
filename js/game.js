@@ -9,7 +9,7 @@
   var G = {
     state: 'boot', time: 0, last: 0,
     save: null, stage: 1, score: 0, lives: 3,
-    res: { fe: 0, cr: 0 }, upg: L.baseUpgrades(),
+    res: { fe: 0, cr: 0 }, upg: L.baseUpgrades(), wpnMode: 'vulcan',
     hp: 2, shield: 0, shieldT: 0, shipDead: false, respawnT: -1, invuln: 0,
     fireCd: 0, chain: 0, chainT: 0, clearT: -1, droneT: 0, shakeT: 0,
     raidersQueue: 0, raiderT: 0, plan: null,
@@ -132,7 +132,7 @@
 
   function tryFireShip() {
     if (!G.ship || G.shipDead || G.clearT >= 0 || G.fireCd > 0) return false;
-    var w = L.weaponStats(G.upg.weapon);
+    var w = L.weaponStats(G.upg.weapon, G.wpnMode);
     var shipPos = G.ship.group.position;
     var fired = false;
     for (var i = 0; i < w.shots; i++) {
@@ -141,16 +141,20 @@
       var off = w.shots > 1 ? (i - (w.shots - 1) / 2) * w.spread * 2.4 : 0;
       var ang = G.ship.heading + off;
       var dx = -Math.sin(ang), dz = -Math.cos(ang);
-      var spd = C.bullet.speed * (1 + 0.06 * (G.upg.weapon - 1));
+      var spd = C.bullet.speed * (1 + 0.06 * (G.upg.weapon - 1)) * (w.speedMul || 1.0);
       bl.reset(
         shipPos.x + dx * 3.4, shipPos.z + dz * 3.4,
         dx * spd + G.ship.vel.x * C.bullet.inheritMul,
         dz * spd + G.ship.vel.z * C.bullet.inheritMul,
-        w.dmg, C.bullet.life, 'p'
+        w.dmg, C.bullet.life, 'p', w.pierce, w.mode
       );
       fired = true;
     }
-    if (fired) { SFX.play('shoot'); G.fireCd = w.cd; }
+    if (fired) {
+      if (typeof fireOptionDrones === 'function') fireOptionDrones(w);
+      SFX.play('shoot');
+      G.fireCd = w.cd;
+    }
     return fired;
   }
 
@@ -273,6 +277,7 @@
     G.stage = Math.max(1, save.stage || 1);
     G.res = save.res;            // 同じオブジェクト参照を持ち回る (death/stage で自動セーブ対象)
     G.upg = save.upgrades;
+    G.wpnMode = save.wpnMode || 'vulcan';
     G.score = 0;
     G.lives = 3;
     G.chain = 0; G.chainT = 0; G.fireCd = 0;
@@ -294,6 +299,7 @@
   function toTitle() {
     G.save = S.load();
     G.res = G.save.res; G.upg = G.save.upgrades;
+    G.wpnMode = G.save.wpnMode || 'vulcan';
     spawnAmbient();
     UI.fillTitle(G.save);
     UI.setScreen('title');
@@ -713,27 +719,28 @@
       if (!b.alive) continue;
       var bx = b.mesh.position.x, bz = b.mesh.position.z;
       if (b.team === 'p') {
-        for (j = 0; j < G.rocks.length; j++) {
+        for (j = 0; b.alive && j < G.rocks.length; j++) {
           var rk = G.rocks[j];
           var rp = rk.mesh.position;
-          var rr = rk.radius + C.bullet.radius;
+          var rr = rk.radius + (b.isLaser ? C.bullet.radius * 1.3 : C.bullet.radius);
           if (dist2(bx, bz, rp.x, rp.z) < rr * rr) {
-            b.kill();
-            G.fx.burst(rp, rk.geode ? C.colors.geode : C.colors.rock, 6, 16);
-            if (rk.hit(b.dmg)) killRock(rk, true);
-            else SFX.play('hitRock');
-            break;
+            if (b.onHit(rk.id)) {
+              G.fx.burst(rp, rk.geode ? C.colors.geode : C.colors.rock, 6, 16);
+              if (rk.hit(b.dmg)) killRock(rk, true);
+              else SFX.play('hitRock');
+            }
           }
         }
         for (j = 0; b.alive && j < G.raiders.length; j++) {
           var rd = G.raiders[j];
           var q = rd.mesh.position;
-          var qr = C.raider.radius + C.bullet.radius;
+          var qr = C.raider.radius + (b.isLaser ? C.bullet.radius * 1.3 : C.bullet.radius);
           if (dist2(bx, bz, q.x, q.z) < qr * qr) {
-            b.kill();
-            G.fx.burst(q, C.colors.raider, 6, 18);
-            rd.hp -= b.dmg;
-            if (rd.hp <= 0) killRaider(rd, true); else SFX.play('hitRock');
+            if (b.onHit(rd.id)) {
+              G.fx.burst(q, C.colors.raider, 6, 18);
+              rd.hp -= b.dmg;
+              if (rd.hp <= 0) killRaider(rd, true); else SFX.play('hitRock');
+            }
           }
         }
       } else {
@@ -922,10 +929,32 @@
     G.save.stage = Math.max(G.save.stage || 1, G.stage);
     G.save.res = { fe: Math.floor(G.res.fe), cr: Math.floor(G.res.cr) };
     G.save.upgrades = G.upg;
+    G.save.wpnMode = G.wpnMode;
     G.save.padLayout = G.padLayout;
     if (G.score > G.save.highScore) G.save.highScore = Math.floor(G.score);
     G.save.muted = SFX.muted();
     return S.save(G.save);
+  }
+
+  function swapWeapon() {
+    if (G.upg.weapon < 2) {
+      UI.toast('Lv2以上で換装可能になります');
+      return false;
+    }
+    var cost = L.SWAP_COST;
+    if (!L.canAfford(G.res, cost)) {
+      UI.toast('資源不足: Fe ' + cost.fe + ' / Cr ' + cost.cr + ' が必要です');
+      return false;
+    }
+    G.res.fe -= cost.fe;
+    G.res.cr -= cost.cr;
+    G.wpnMode = (G.wpnMode === 'laser' ? 'vulcan' : 'laser');
+    saveNow();
+    SFX.play('craft');
+    var modeName = G.wpnMode === 'laser' ? '集束レーザー (直線貫通)' : '2Wayバルカン (拡散範囲)';
+    UI.toast('主兵装換装: ' + modeName);
+    if (G.state === 'craft') UI.craftPanel(snapshot(), G.craftCursor);
+    return true;
   }
 
   /* ================= ヘルパ ================= */
@@ -947,11 +976,11 @@
   }
 
   function snapshot() {
-    var w = L.weaponStats(G.upg.weapon);
+    var w = L.weaponStats(G.upg.weapon, G.wpnMode);
     return {
       score: G.score, best: Math.max(G.save ? G.save.highScore : 0, G.score),
       stage: G.stage, lives: G.lives, res: G.res,
-      wpnName: w.name, engineLv: G.upg.engine,
+      wpnName: w.name, engineLv: G.upg.engine, wpnMode: G.wpnMode,
       hp: Math.max(0, G.hp), maxHp: L.hullHp(G.upg.hull),
       shield: G.shield, maxShield: L.shieldCap(G.upg.shield),
       comboMult: G.chainT > 0 ? L.comboMult(G.chain) : 1,
@@ -997,6 +1026,7 @@
     }
     if (code === 'KeyP') { if (G.state !== 'craft') setPaused(G.state === 'play'); return; }
     if (G.state === 'craft') {
+      if (code === 'KeyX') { swapWeapon(); return; }
       var n = parseInt(code.indexOf('Digit') === 0 ? code.slice(5) : '', 10);
       if (n >= 1 && n <= L.RECIPES.length) craft(L.RECIPES[n - 1].id);
     }
@@ -1005,6 +1035,7 @@
   AF.Game = {
     init: init, onKey: onKey, snapshot: snapshot, state: function () { return G.state; },
     setPadLayout: setPadLayout, togglePadLayout: togglePadLayout,
+    swapWeapon: swapWeapon, craft: craft,
     dropResource: dropResource,
     _G: G
   };

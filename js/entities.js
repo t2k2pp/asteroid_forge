@@ -101,8 +101,11 @@
   };
   Ship._tmp = { x: 0, z: 0 };
 
+  var _nextEntityId = 0;
+
   /* ---------- Rock -------------------------------------------------------- */
   function Rock(scene, sizeIdx, hp, geode, speedMul) {
+    this.id = ++_nextEntityId;
     this.size = sizeIdx;
     this.radius = C.rock.radii[sizeIdx];
     this.hp = hp;
@@ -158,26 +161,62 @@
     }
     return _matBullet[team + '_g'];
   }
+  var _laserMat = null, _laserGlow = null;
+  function laserMat() {
+    if (!_laserMat) _laserMat = new T.MeshBasicMaterial({ color: 0x88ffff });
+    return _laserMat;
+  }
+  function laserGlowMat() {
+    if (!_laserGlow) {
+      _laserGlow = new T.SpriteMaterial({
+        map: glowTexture(), color: 0x66ffff,
+        transparent: true, opacity: 0.95, blending: T.AdditiveBlending, depthWrite: false
+      });
+    }
+    return _laserGlow;
+  }
   function Bullet(scene) {
     this.mesh = new T.Mesh(bulletGeo(), bulletMat('p'));
     var g = new T.Sprite(glowMat('p')); g.scale.setScalar(3.4);
     this.mesh.add(g);
     scene.add(this.mesh);
-    this.reset(0, 0, 0, 0, 0, 0, 'p', 1);
+    this.reset(0, 0, 0, 0, 0, 0, 'p', 1, 'vulcan');
     this.kill();   // プール用の初期化 (非活性)
   }
-  Bullet.prototype.reset = function (x, z, vx, vz, dmg, life, team) {
+  Bullet.prototype.reset = function (x, z, vx, vz, dmg, life, team, pierce, mode) {
     this.alive = true;
     this.team = (team === 'r') ? 'r' : 'p';
     this.dmg = dmg || 1;
     this.life = life || C.bullet.life;
     this.velX = vx; this.velZ = vz;
+    this.pierce = (typeof pierce === 'number' && pierce >= 1) ? pierce : 1;
+    this.mode = mode || 'vulcan';
+    this.isLaser = (this.mode === 'laser');
+    this.hitSet = [];
     this.mesh.position.set(x, 0.8, z);
-    this.mesh.material = bulletMat(team);
-    this.mesh.children[0].material = glowMat(team);
-    var s = 0.7 + this.dmg * 0.35;
-    this.mesh.scale.setScalar(s);
+
+    if (this.isLaser) {
+      this.mesh.material = laserMat();
+      this.mesh.children[0].material = laserGlowMat();
+      this.mesh.scale.set(0.55, 0.55, 2.8 + this.dmg * 0.5);
+      this.mesh.rotation.y = Math.atan2(-vx, -vz);
+      this.mesh.children[0].scale.set(2.4, 6.0, 2.4);
+    } else {
+      this.mesh.material = bulletMat(team);
+      this.mesh.children[0].material = glowMat(team);
+      var s = 0.7 + this.dmg * 0.35;
+      this.mesh.scale.setScalar(s);
+      this.mesh.rotation.set(0, 0, 0);
+      this.mesh.children[0].scale.setScalar(3.4);
+    }
     this.mesh.visible = true;
+  };
+  Bullet.prototype.onHit = function (targetId) {
+    if (this.hitSet.indexOf(targetId) !== -1) return false;
+    this.hitSet.push(targetId);
+    this.pierce--;
+    if (this.pierce <= 0) this.kill();
+    return true;
   };
   Bullet.prototype.update = function (dt) {
     if (!this.alive) return;
@@ -274,6 +313,7 @@
     this.orbit = 0;
   }
   Raider.prototype.reset = function (x, z) {
+    this.id = ++_nextEntityId;
     this.active = true;
     this.hp = C.raider.hp;
     this.fireT = rnd(0.8, 1.6);
