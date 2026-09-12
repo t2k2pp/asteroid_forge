@@ -570,8 +570,52 @@
     this.mesh.visible = true;
   };
 
+  /* ---------- OrbitBit (2秒/周 回転シールド防護ビット) ------------------- */
+  var _orbitBitGeo = null, _orbitBitWire = null;
+  function orbitBitGeos() {
+    if (!_orbitBitGeo) {
+      _orbitBitGeo = new T.IcosahedronGeometry(0.7, 0);
+      _orbitBitWire = new T.WireframeGeometry(_orbitBitGeo);
+    }
+    return { solid: _orbitBitGeo, wire: _orbitBitWire };
+  }
+  function OrbitBit(scene, index) {
+    this.index = index || 0;
+    this.active = false;
+    this.hitCd = 0;
+    var geos = orbitBitGeos();
+    this.mesh = new T.Group();
+    var fill = new T.Mesh(geos.solid, new T.MeshBasicMaterial({ color: 0x44ddff, transparent: true, opacity: 0.75 }));
+    var wire = new T.LineSegments(geos.wire, new T.LineBasicMaterial({ color: 0x88ffff, transparent: true, opacity: 0.95 }));
+    var gs = new T.Sprite(new T.SpriteMaterial({
+      map: glowTexture(), color: 0x00e5ff, transparent: true, opacity: 0.9,
+      blending: T.AdditiveBlending, depthWrite: false
+    }));
+    gs.scale.setScalar(5.2);
+    this.mesh.add(fill); this.mesh.add(wire); this.mesh.add(gs);
+    this.mesh.visible = false;
+    scene.add(this.mesh);
+  }
+  OrbitBit.prototype.update = function (shipPos, totalCount, tSec, dt) {
+    if (!this.active) {
+      this.mesh.visible = false;
+      return;
+    }
+    this.hitCd = Math.max(0, this.hitCd - dt);
+    // 2.0秒で厳密に1回転 (角速度: π rad/s)
+    var ang = (tSec * Math.PI) + (this.index * (Math.PI * 2 / Math.max(1, totalCount)));
+    var r = 4.8;
+    var bx = shipPos.x + Math.cos(ang) * r;
+    var bz = shipPos.z + Math.sin(ang) * r;
+    this.mesh.position.set(bx, 1.0, bz);
+    this.mesh.rotation.y += 6.0 * dt;
+    this.mesh.rotation.x += 4.0 * dt;
+    this.mesh.visible = true;
+  };
+
   AF.Ship = Ship; AF.Rock = Rock; AF.Bullet = Bullet; AF.Pickup = Pickup; AF.Raider = Raider;
   AF.OptionDrone = OptionDrone;
+  AF.OrbitBit = OrbitBit;
   AF.FXManager = FXManager;
   AF.glowTexture = glowTexture;
   AF.world = { buildStars: buildStars, buildFloor: buildFloor, buildNebula: buildNebula };

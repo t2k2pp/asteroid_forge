@@ -13,7 +13,7 @@
     hp: 2, shield: 0, shieldT: 0, shipDead: false, respawnT: -1, invuln: 0,
     fireCd: 0, chain: 0, chainT: 0, clearT: -1, droneT: 0, shakeT: 0,
     raidersQueue: 0, raiderT: 0, plan: null,
-    rocks: [], bullets: [], pickups: [], raiders: [], options: [], trailHistory: [],
+    rocks: [], bullets: [], pickups: [], raiders: [], options: [], trailHistory: [], orbitBits: [],
     input: { rot: 0, thrust: false, fire: false }, keys: {},
     padLayout: 'xbox', padConnected: false, padPrevButtons: {}, padPrevAxes: {}, craftCursor: 0,
     pointer: { active: false, screenX: 0, screenY: 0, worldX: 0, worldZ: 0, inside: true, justDown: false },
@@ -45,6 +45,7 @@
     G.fx = new AF.FXManager(G.scene);
     for (var i = 0; i < 70; i++) G.bullets.push(new AF.Bullet(G.scene));
     for (var oi = 0; oi < 3; oi++) G.options.push(new AF.OptionDrone(G.scene, oi));
+    for (var bi = 0; bi < 3; bi++) G.orbitBits.push(new AF.OrbitBit(G.scene, bi));
 
     UI.init({
       continueRun: function () { start(false); },
@@ -211,6 +212,60 @@
     }
   }
 
+  /* ================= 回転シールド (2秒/周 公転防護ビット) ================= */
+  function updateOrbitShield(dt, tSec, shipPos) {
+    if (!G.orbitBits) return;
+    var count = L.orbitShieldCount(G.upg.orbitShield || 0);
+    if (G.shipDead || count <= 0) {
+      for (var k = 0; k < G.orbitBits.length; k++) {
+        G.orbitBits[k].active = false;
+        G.orbitBits[k].mesh.visible = false;
+      }
+      return;
+    }
+
+    for (var i = 0; i < G.orbitBits.length; i++) {
+      var bit = G.orbitBits[i];
+      if (i < count) {
+        bit.active = true;
+        bit.update(shipPos, count, tSec, dt);
+        var bp = bit.mesh.position;
+
+        // 敵の弾 (Raider弾: team === 'r') の消滅判定 (ペナルティなし)
+        for (var bIdx = 0; bIdx < G.bullets.length; bIdx++) {
+          var bl = G.bullets[bIdx];
+          if (!bl.alive || bl.team !== 'r') continue;
+          var bx = bl.mesh.position.x, bz = bl.mesh.position.z;
+          if (dist2(bp.x, bp.z, bx, bz) < 2.4 * 2.4) {
+            bl.kill();
+            G.fx.ring(bp, 0x00e5ff, 2, 10, 0.25);
+            G.fx.burst(bp, 0x66ffff, 4, 12);
+            SFX.play('hitRock');
+          }
+        }
+
+        // 隕石・レイド機との接触微ダメージ (低攻撃力)
+        if (bit.hitCd <= 0) {
+          for (var rIdx = 0; rIdx < G.rocks.length; rIdx++) {
+            var rk = G.rocks[rIdx];
+            var rp = rk.mesh.position;
+            var rRange = rk.radius + 1.1;
+            if (dist2(bp.x, bp.z, rp.x, rp.z) < rRange * rRange) {
+              bit.hitCd = 0.35;
+              G.fx.burst(bp, 0x66ffff, 3, 10);
+              if (rk.hit(1)) killRock(rk, true);
+              else SFX.play('hitRock');
+              break;
+            }
+          }
+        }
+      } else {
+        bit.active = false;
+        bit.mesh.visible = false;
+      }
+    }
+  }
+
   function tryFireShip() {
     if (!G.ship || G.shipDead || G.clearT >= 0 || G.fireCd > 0) return false;
     var w = L.weaponStats(G.upg.weapon, G.wpnMode);
@@ -319,6 +374,7 @@
     G.raiders.forEach(function (r) { r.active = false; r.mesh.visible = false; });
     G.raiders.length = 0;
     if (G.options) G.options.forEach(function (opt) { opt.active = false; opt.mesh.visible = false; });
+    if (G.orbitBits) G.orbitBits.forEach(function (b) { b.active = false; b.mesh.visible = false; });
     G.trailHistory = [];
   }
 
@@ -682,6 +738,7 @@
       G.ship.update(dt, G.input, st, G.time);
       if (wrapPos(shipPos, 1.4)) G.fx.ring(shipPos, C.colors.bound, 3, 15, 0.4);
       updateOptionDrones(dt, G.time);
+      updateOrbitShield(dt, G.time, shipPos);
       if (G.invuln > 0) {
         G.invuln -= dt;
         G.ship.group.visible = (Math.floor(G.time * 10) % 2 === 0);
