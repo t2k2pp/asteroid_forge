@@ -179,11 +179,11 @@
   - `DESIGN.md` に新クラフト体系（オプション、オービットシールド、装甲自動修復、バルカン/レーザー換装）の仕様を策定・追記
   - `TODO.md` に実装ToDoを策定
   - コミット作成およびリモートリポジトリ（origin/main）へのPush
-- [ ] 2. 純ロジック (`js/logic.js`) & 永続化 (`js/storage.js`) の拡張と単体テスト
+- [x] 2. 純ロジック (`js/logic.js`) & 永続化 (`js/storage.js`) の拡張と単体テスト
   - `RECIPES` に `orbitShield`, `repair`, `option` を追加
   - `wpnMode` ('vulcan' | 'laser') の武器ステータス計算、換装コスト計算を実装
   - `js/storage.js` に `wpnMode` と新規アップグレードの永続化・サニタイズ処理を追加
-  - `tests/run-tests.mjs` に単体テストを追加・検証
+  - `tests/run-tests.mjs` に単体テストを追加・検証 (19 passed, 0 failed)
   - コミット作成およびリモートリポジトリ（origin/main）へのPush
 - [ ] 3. 武器換装（バルカン/レーザー貫通砲）＆弾丸貫通ロジックの実装
   - `Bullet` に貫通カウント (`pierce`) および直線ビーム外見・高速弾丸の追加

@@ -39,19 +39,34 @@ test('CFG: arena halfW/halfD が w/d の半分', () => {
   assert.equal(C.arena.halfD, C.arena.d / 2);
 });
 
-/* ---------- 武器バランスの単調性 ---------- */
-test('weaponStats: Lv が上がるほど連射は速く・弾数/威力は減らない', () => {
-  let prev = L.weaponStats(1);
+/* ---------- 武器バランスの単調性と分岐換装 ---------- */
+test('weaponStats: バルカン系とレーザー系の性能・分岐・上限クランプ', () => {
+  // バルカン系
+  let prevV = L.weaponStats(1, 'vulcan');
   for (let lv = 2; lv <= 5; lv++) {
-    const w = L.weaponStats(lv);
-    assert.ok(w.cd <= prev.cd, `Lv${lv} の連射間隔が悪化 (${prev.cd} → ${w.cd})`);
-    assert.ok(w.dmg >= prev.dmg, `Lv${lv} で威力低下`);
-    assert.ok(w.shots >= prev.shots, `Lv${lv} で弾数減少`);
-    assert.ok(w.cd * w.dmg < 1.5, 'DPS が異常');
-    prev = w;
+    const w = L.weaponStats(lv, 'vulcan');
+    assert.ok(w.cd <= prevV.cd, `バルカン Lv${lv} の連射間隔が悪化 (${prevV.cd} → ${w.cd})`);
+    assert.ok(w.dmg >= prevV.dmg, `バルカン Lv${lv} で威力低下`);
+    assert.ok(w.shots >= prevV.shots, `バルカン Lv${lv} で弾数減少`);
+    assert.equal(w.pierce, 1, 'バルカンは貫通1');
+    prevV = w;
   }
-  assert.equal(L.weaponStats(99).name, 'Mk V', 'Lv上限クランプ');
-  assert.equal(L.weaponStats(0).name, 'Mk I', 'Lv下限クランプ');
+  assert.equal(L.weaponStats(99, 'vulcan').name, '広角3Wayバルカン', 'Lv上限クランプ');
+  assert.equal(L.weaponStats(0, 'vulcan').name, 'バルカン', 'Lv下限クランプ');
+
+  // レーザー系 (Lv2以降で直線貫通ビーム)
+  let prevL = L.weaponStats(1, 'laser');
+  assert.equal(prevL.name, 'バルカン', 'Lv1は共通バルカン');
+  for (let lv = 2; lv <= 5; lv++) {
+    const w = L.weaponStats(lv, 'laser');
+    assert.ok(w.dmg > 1, `レーザー Lv${lv} で高威力 (${w.dmg})`);
+    assert.ok(w.pierce >= 2, `レーザー Lv${lv} で貫通性能あり (${w.pierce})`);
+    assert.ok(w.speedMul >= 1.6, `レーザー Lv${lv} で高速弾 (${w.speedMul})`);
+    assert.equal(w.shots, 1, 'レーザーは単発直線ビーム');
+    prevL = w;
+  }
+  assert.equal(L.weaponStats(2, 'laser').name, '集束レーザー');
+  assert.equal(L.weaponStats(5, 'laser').name, 'ハイパーレーザー');
 });
 
 /* ---------- エンジン ---------- */
@@ -140,6 +155,26 @@ test('stageBonus: 正でステージと共に増加', () => {
   assert.ok(a.fe > 0 && a.cr > 0 && b.fe > a.fe && b.cr > a.cr);
 });
 
+/* ---------- 新規クラフト機能 (オービットシールド・ナノリペア・オプション) ---------- */
+test('newCraft: orbitShield / repair / option の計算と定数', () => {
+  assert.equal(L.orbitShieldCount(0), 0);
+  assert.equal(L.orbitShieldCount(2), 2);
+  assert.equal(L.orbitShieldCount(5), 3);
+
+  assert.equal(L.repairInterval(0), null);
+  assert.equal(L.repairInterval(1), 8);
+  assert.equal(L.repairInterval(2), 5);
+  assert.equal(L.repairInterval(3), 3);
+
+  assert.equal(L.optionCount(0), 0);
+  assert.equal(L.optionCount(1), 1);
+  assert.equal(L.optionCount(3), 3);
+  assert.equal(L.optionCount(99), 3);
+
+  assert.equal(L.SWAP_COST.fe, 15);
+  assert.equal(L.SWAP_COST.cr, 5);
+});
+
 /* ---------- 永続化 ---------- */
 test('Save: 初期状態は安全なデフォルト / hasSave=false', () => {
   const s = S.load();
@@ -149,15 +184,20 @@ test('Save: 初期状態は安全なデフォルト / hasSave=false', () => {
   assert.equal(s.upgrades.weapon, 1);
   assert.equal(s.upgrades.engine, 1);
   assert.equal(s.upgrades.shield, 0);
+  assert.equal(s.upgrades.orbitShield, 0);
   assert.equal(s.upgrades.hull, 1);
+  assert.equal(s.upgrades.repair, 0);
+  assert.equal(s.upgrades.option, 0);
   assert.equal(s.upgrades.drone, 0);
+  assert.equal(s.wpnMode, 'vulcan');
   assert.equal(S.hasSave(), false);
 });
 
 test('Save: save→load ラウンドトリップ & hasSave=true', () => {
   const state = {
     stage: 7, res: { fe: 120, cr: 34 },
-    upgrades: { weapon: 3, engine: 2, shield: 1, hull: 2, drone: 1 },
+    upgrades: { weapon: 3, engine: 2, shield: 1, orbitShield: 2, hull: 2, repair: 1, option: 2, drone: 1 },
+    wpnMode: 'laser',
     highScore: 58120, deaths: 3, muted: true
   };
   assert.equal(S.save(state), true);
@@ -168,8 +208,12 @@ test('Save: save→load ラウンドトリップ & hasSave=true', () => {
   assert.equal(s.upgrades.weapon, 3);
   assert.equal(s.upgrades.engine, 2);
   assert.equal(s.upgrades.shield, 1);
+  assert.equal(s.upgrades.orbitShield, 2);
   assert.equal(s.upgrades.hull, 2);
+  assert.equal(s.upgrades.repair, 1);
+  assert.equal(s.upgrades.option, 2);
   assert.equal(s.upgrades.drone, 1);
+  assert.equal(s.wpnMode, 'laser');
   assert.equal(s.highScore, 58120);
   assert.equal(s.muted, true);
   assert.equal(S.hasSave(), true);
@@ -185,7 +229,8 @@ test('Save: 破損 JSON でもデフォルトに復帰しクラッシュしな�
 test('Save: サニタイズ (負値/型異常/範囲外/未知キーを弾く)', () => {
   const evil = {
     stage: -5, res: { fe: 'x', cr: 99999 },
-    upgrades: { weapon: 99, shield: -3, bogus: 77 },
+    upgrades: { weapon: 99, shield: -3, orbitShield: 99, repair: -2, option: 99, bogus: 77 },
+    wpnMode: 'alien_weapon',
     highScore: -9, deaths: null, muted: 'yes'
   };
   const s = S.sanitize(evil);
@@ -194,7 +239,11 @@ test('Save: サニタイズ (負値/型異常/範囲外/未知キーを弾く)',
   assert.equal(s.res.cr, 9999);          // 上限クランプ
   assert.equal(s.upgrades.weapon, 5);    // レシピ max クランプ
   assert.equal(s.upgrades.shield, 0);
+  assert.equal(s.upgrades.orbitShield, 3);
+  assert.equal(s.upgrades.repair, 0);
+  assert.equal(s.upgrades.option, 3);
   assert.equal(s.upgrades.bogus, undefined);
+  assert.equal(s.wpnMode, 'vulcan');     // 不正値フォールバック
   assert.equal(s.highScore, 0);
   assert.equal(typeof s.muted, 'boolean');
 });
@@ -216,6 +265,21 @@ test('Save: padLayout の保存・取得とサニタイズ (デフォルト xbox
 
   const sanitizedSwitch = S.sanitize({ padLayout: 'switch' });
   assert.equal(sanitizedSwitch.padLayout, 'switch');
+});
+
+test('Save: wpnMode の保存・取得とサニタイズ (デフォルト vulcan / laser 切り替え / 不正値フォールバック)', () => {
+  S.clear();
+  assert.equal(S.getWpnMode(), 'vulcan');
+  assert.equal(S.setWpnMode('laser'), 'laser');
+  assert.equal(S.getWpnMode(), 'laser');
+  assert.equal(S.setWpnMode('vulcan'), 'vulcan');
+  assert.equal(S.getWpnMode(), 'vulcan');
+
+  const sanitizedInvalid = S.sanitize({ wpnMode: 'railgun' });
+  assert.equal(sanitizedInvalid.wpnMode, 'vulcan');
+
+  const sanitizedLaser = S.sanitize({ wpnMode: 'laser' });
+  assert.equal(sanitizedLaser.wpnMode, 'laser');
 });
 
 console.log(`\n${pass} passed, ${fail} failed\n`);

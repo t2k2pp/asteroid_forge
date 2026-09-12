@@ -48,6 +48,7 @@
       deaths: num(raw.deaths, 0, 1e6, 0),
       muted: !!raw.muted,
       padLayout: raw.padLayout === 'switch' ? 'switch' : 'xbox',
+      wpnMode: raw.wpnMode === 'laser' ? 'laser' : 'vulcan',
       ts: num(raw.ts, 0, 1e12, 0)
     };
     for (var i = 0; i < L.RECIPES.length; i++) {
@@ -80,9 +81,20 @@
     save(s);
     return s.padLayout;
   }
+  function getWpnMode() {
+    var s = load();
+    return s.wpnMode || 'vulcan';
+  }
+  function setWpnMode(mode) {
+    var s = load();
+    s.wpnMode = mode === 'laser' ? 'laser' : 'vulcan';
+    save(s);
+    return s.wpnMode;
+  }
 
   AF.Save = {
     load: load, save: save, hasSave: hasSave, clear: clear, sanitize: sanitize,
-    getPadLayout: getPadLayout, setPadLayout: setPadLayout
+    getPadLayout: getPadLayout, setPadLayout: setPadLayout,
+    getWpnMode: getWpnMode, setWpnMode: setWpnMode
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
