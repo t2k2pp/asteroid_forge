@@ -167,7 +167,7 @@
   - `tests/browser-verify.mjs` にゲームパッドRT射撃時に `G.input.thrust === false` かつ `G.ship.thruster.visible === false` であることのアサーションを追加
   - Playwright による実機ブラウザテスト実行・全件合格確認（エラー0）
   - コミット作成およびリモートリポジトリ（origin/main）へのPush
-- [ ] 4. ToDo完了記録の更新と最終リモート同期
+- [x] 4. ToDo完了記録の更新と最終リモート同期
   - `TODO.md` の完了状態更新
   - コミット作成およびリモートリポジトリ（origin/main）へのPush
 
