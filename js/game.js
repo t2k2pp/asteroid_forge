@@ -471,16 +471,16 @@
       else if (isDown(15)) padRot = 1;
       else if (isDown(14)) padRot = -1;
 
-      var padThrust = stickY < -0.3 || isDown(12) || isDown(7) || isDown(6);
-      if (layout === 'xbox') {
-        if (isDown(0)) padThrust = true;
-      }
+      // 推進 (Thrust): スティック上 / 十字キー上 / LT (左トリガー) / LB (左バンパー) / 下ボタン (Xbox: A, Switch: B)
+      // ※射撃ボタン (RT, RB, X/Y/A) によるスラスター誤動作を防止し、射撃と完全独立化
+      var padThrust = stickY < -0.3 || isDown(12) || isDown(6) || isDown(4) || isDown(0);
 
+      // 射撃 (Fire): RT (右トリガー) / RB (右バンパー) / フェイス射撃ボタン
       var padFire = isDown(7) || isDown(5);
       if (layout === 'xbox') {
-        if (isDown(2)) padFire = true;
+        if (isDown(2)) padFire = true; // Xボタン (左)
       } else {
-        if (isDown(1) || isDown(2) || isDown(3)) padFire = true;
+        if (isDown(1) || isDown(2)) padFire = true; // Aボタン (右) / Yボタン (左) (※上ボタン3のXはクラフト用)
       }
 
       result.rot = padRot;
