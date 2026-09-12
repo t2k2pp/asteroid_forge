@@ -10,7 +10,7 @@
     state: 'boot', time: 0, last: 0,
     save: null, stage: 1, score: 0, lives: 3,
     res: { fe: 0, cr: 0 }, upg: L.baseUpgrades(), wpnMode: 'vulcan',
-    hp: 2, shield: 0, shieldT: 0, shipDead: false, respawnT: -1, invuln: 0,
+    hp: 2, shield: 0, shieldT: 0, repairT: 0, shipDead: false, respawnT: -1, invuln: 0,
     fireCd: 0, chain: 0, chainT: 0, clearT: -1, droneT: 0, shakeT: 0,
     raidersQueue: 0, raiderT: 0, plan: null,
     rocks: [], bullets: [], pickups: [], raiders: [], options: [], trailHistory: [], orbitBits: [],
@@ -751,6 +751,21 @@
         if (G.shieldT <= 0) G.shield = Math.min(cap, G.shield + L.shieldRegen(G.upg.shield) * dt);
       } else if (cap > 0 && G.shieldT < 0) {
         G.shieldT = C.shieldGrace;
+      }
+      // 装甲自動修復 (ナノリペア)
+      var maxHp = L.hullHp(G.upg.hull);
+      var repairInt = L.repairInterval(G.upg.repair || 0);
+      if (repairInt && G.hp < maxHp) {
+        G.repairT -= dt;
+        if (G.repairT <= 0) {
+          G.hp = Math.min(maxHp, G.hp + 1);
+          G.repairT = repairInt;
+          G.fx.ring(shipPos, 0x00ff88, 2, 14, 0.4);
+          G.fx.burst(shipPos, 0x55ff99, 4, 8);
+          SFX.play('heal');
+        }
+      } else if (repairInt && G.repairT <= 0) {
+        G.repairT = repairInt;
       }
     } else {
       G.respawnT -= dt;

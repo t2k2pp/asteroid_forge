@@ -72,6 +72,7 @@
     warp: function () { tone(200, 900, 0.12, 'sine', 0.25); },
     clear: function () { var t = ctx ? ctx.currentTime : 0; tone(392, 392, 0.16, 'square', 0.45, t); tone(523, 523, 0.16, 'square', 0.45, t + 0.14); tone(784, 784, 0.28, 'square', 0.5, t + 0.28); },
     raider: function () { tone(90, 70, 0.16, 'sawtooth', 0.35); },
+    heal: function () { tone(440, 880, 0.18, 'sine', 0.4); },
     click: function () { tone(520, 480, 0.04, 'square', 0.25); }
   };
 
